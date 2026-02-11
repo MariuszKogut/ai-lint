@@ -1,18 +1,43 @@
-# ai-linter
+# ai-lint
 
 AI-powered code linter with custom YAML rules. Define your own lint rules as natural-language prompts, and let AI models analyze your code against them. Uses [OpenRouter](https://openrouter.ai/) to access Gemini, Claude, GPT and other models.
+
+## Why?
+
+AI coding assistants are incredibly productive — but they make mistakes. They introduce business logic into route handlers, leak internal error details to users, create god functions, or forget to use parameterized queries. Traditional linters can't catch these semantic and architectural violations because they don't understand intent.
+
+**ai-lint lets you control AI with AI.** Write the rules that matter to your codebase in plain English, and let a language model enforce them on every commit. It catches exactly the kind of "smart but sloppy" mistakes that slip through code review.
+
+The rules are especially powerful when generated with tools like [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or similar AI coding assistants. Describe what you want to enforce, let the AI draft the rule — done. When you encounter false positives (e.g. a FAQ page that legitimately contains error messages), just refine the `exclude` pattern or make the prompt more specific. The feedback loop is fast because the rules are just YAML and natural language.
 
 ## Installation
 
 ```bash
+# Clone and install
+git clone https://github.com/Handmade-Systems/tool-ai-linter.git
+cd tool-ai-linter
 npm install
 npm run build
-npm link  # makes 'ai-linter' globally available
+
+# Make globally available
+npm link
 ```
+
+Or install directly from npm:
+
+```bash
+npm install -g ai-lint
+```
+
+### Requirements
+
+- Node.js 20+
+- An [OpenRouter](https://openrouter.ai/) API key
+- A git repository (for `--changed` mode and `.gitignore` filtering)
 
 ## Setup
 
-ai-linter uses [OpenRouter](https://openrouter.ai/) as API gateway. This gives you access to multiple models (Gemini, Claude, GPT, etc.) with einem einzigen API key.
+ai-lint uses [OpenRouter](https://openrouter.ai/) as API gateway. This gives you access to multiple models (Gemini, Claude, GPT, etc.) with a single API key.
 
 1. Create an account at [openrouter.ai](https://openrouter.ai/)
 2. Generate an API key under [Keys](https://openrouter.ai/keys)
@@ -26,6 +51,18 @@ Or create a `.env` file in your project root:
 
 ```
 OPEN_ROUTER_KEY=sk-or-v1-...
+```
+
+### .gitignore
+
+Add these entries to your project's `.gitignore`:
+
+```gitignore
+# ai-lint cache (regenerated automatically)
+.ai-linter/
+
+# Environment variables with API keys
+.env
 ```
 
 ## Quick Start
@@ -77,33 +114,56 @@ rules:
 
 ```bash
 # Lint all files matching rule globs
-ai-linter lint --all
+ai-lint lint --all
 
 # Lint only git-changed files (compared to main branch)
-ai-linter lint --changed
+ai-lint lint --changed
 
 # Lint specific files
-ai-linter lint src/foo.ts src/bar.ts
+ai-lint lint src/foo.ts src/bar.ts
 
 # Use a custom config file
-ai-linter lint --all --config my-rules.yml
+ai-lint lint --all --config my-rules.yml
 
 # Override git base branch
-ai-linter lint --changed --base develop
+ai-lint lint --changed --base develop
+
+# Verbose mode (show API vs cache per check)
+ai-lint lint --all --verbose
 ```
+
+3. Generate rules interactively:
+
+```bash
+ai-lint generate-rule
+# Describe what the rule should check:
+# > Ensure all API endpoints validate request bodies with zod
+```
+
+## Writing Rules with AI
+
+The best way to create rules is with an AI coding assistant like Claude Code:
+
+1. **Describe the problem:** "We keep getting PRs where route handlers contain database queries directly"
+2. **Let the AI draft the rule:** It generates the YAML with id, glob pattern, and prompt
+3. **Test it:** Run `ai-lint lint --all` and check the results
+4. **Refine on false positives:** If a file like `src/pages/faq.tsx` is flagged incorrectly, add an `exclude` pattern or make the prompt more specific (e.g. "Ignore files that only contain static content")
+
+This feedback loop is fast because rules are just YAML and natural language — no AST visitors, no plugin APIs, no compilation step.
 
 ## Commands
 
-### `ai-linter lint`
+### `ai-lint lint`
 
 Run lint rules against files.
 
 ```
-ai-linter lint [files...]
+ai-lint lint [files...]
   --all              Lint all files matching rule globs
   --changed          Lint only git-changed files (vs git_base)
   --base <branch>    Override git_base branch
   --config <path>    Config file path (default: .ai-linter.yml)
+  --verbose          Show detailed progress (API vs cache per check)
 ```
 
 Exit codes:
@@ -111,50 +171,26 @@ Exit codes:
 - `1` — at least one error
 - `2` — configuration or runtime error
 
-### `ai-linter validate`
+### `ai-lint validate`
 
 Validate your config file against the JSON schema without running any lints.
 
 ```
-ai-linter validate
+ai-lint validate
   --config <path>    Config file path (default: .ai-linter.yml)
 ```
 
-This checks:
-- YAML syntax
-- JSON Schema conformance (valid fields, types, enums)
-- Unique rule IDs
-- Required fields (`id`, `name`, `severity`, `glob`, `prompt`)
-- Valid severity values (`error`, `warning`)
-- Valid model values (`gemini-flash`, `haiku`, `sonnet`, `opus`)
-- Rule ID format (snake_case: `^[a-z][a-z0-9_]*$`)
+### `ai-lint generate-rule`
 
-Example output:
+Interactively generate a new lint rule using AI. Describes your intent in plain English, and the AI creates the YAML rule for you. Appends it to your config file after confirmation.
 
-```
-$ ai-linter validate
-Configuration is valid
-  Model: gemini-flash
-  Concurrency: 5
-  Git base: main
-  Rules: 3 (no_logic_in_routes, no_direct_db_in_components, error_messages_no_internals)
-```
-
-### `ai-linter cache clear`
+### `ai-lint cache clear`
 
 Delete the lint result cache.
 
-```
-ai-linter cache clear
-```
-
-### `ai-linter cache status`
+### `ai-lint cache status`
 
 Show cache statistics (number of entries, size on disk).
-
-```
-ai-linter cache status
-```
 
 ## Config Reference
 
@@ -165,9 +201,18 @@ The config file (`.ai-linter.yml`) is validated against a JSON schema (`src/sche
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `model` | `"gemini-flash"` \| `"haiku"` \| `"sonnet"` \| `"opus"` | `"gemini-flash"` | Default AI model for all rules |
-| `concurrency` | `number` (1–20) | `5` | Max parallel API calls |
+| `concurrency` | `number` (1-20) | `5` | Max parallel API calls |
 | `git_base` | `string` | `"main"` | Base branch for `--changed` mode |
 | `rules` | `array` | *(required)* | List of lint rules |
+
+### Available models
+
+| Model | OpenRouter ID | Cost (Input/Output per 1M tokens) | Best for |
+|-------|--------------|------|----------|
+| `gemini-flash` | `google/gemini-2.5-flash` | $0.15 / $0.60 | Default — fast, cheap, good at code |
+| `haiku` | `anthropic/claude-haiku-4.5` | $1.00 / $5.00 | Higher quality, 10x more expensive |
+| `sonnet` | `anthropic/claude-sonnet-4.5` | $3.00 / $15.00 | Best quality for complex rules |
+| `opus` | `anthropic/claude-opus-4.6` | $15.00 / $75.00 | Overkill for linting, but available |
 
 ### Rule fields
 
@@ -179,7 +224,24 @@ The config file (`.ai-linter.yml`) is validated against a JSON schema (`src/sche
 | `glob` | `string` | yes | Glob pattern for file matching |
 | `exclude` | `string` | no | Glob pattern to exclude files |
 | `prompt` | `string` | yes | Natural-language lint instruction |
-| `model` | `"gemini-flash"` \| `"haiku"` \| `"sonnet"` \| `"opus"` | no | Override the default model |
+| `model` | `"gemini-flash"` \| `"haiku"` \| `"sonnet"` \| `"opus"` | no | Override the default model for this rule |
+
+## How It Works
+
+1. **Config loading** — reads `.ai-linter.yml` and validates it against the JSON schema
+2. **File resolution** — resolves files via `--all` (glob), `--changed` (git diff), or explicit paths; respects `.gitignore`
+3. **Rule matching** — for each file, finds all rules whose `glob` matches and `exclude` doesn't
+4. **Caching** — checks if (file content hash + rule prompt hash) is already cached; skips API calls for cached results
+5. **AI linting** — sends each (file, rule) pair via OpenRouter to the configured AI model, which responds with `{ pass, message, line }`
+6. **Reporting** — groups violations by file and prints them to the console
+
+## Caching
+
+Results are cached in `.ai-linter/cache.json` based on:
+- SHA-256 hash of the file content
+- SHA-256 hash of the rule prompt
+
+The cache is automatically invalidated when either the file or the prompt changes. Use `ai-lint cache clear` to force a fresh run.
 
 ## Example Rules
 
@@ -209,16 +271,6 @@ These rules show the kind of architectural and semantic checks that traditional 
     directly (e.g. prisma, drizzle, knex, mongoose, sql, pool.query).
     Data fetching should happen in server actions, API routes, or
     dedicated data-access layers — never inside component code.
-
-- id: single_responsibility_service
-  name: "Services should have a single domain"
-  severity: warning
-  glob: "src/services/**/*.ts"
-  prompt: |
-    Check if this service file mixes multiple unrelated domains.
-    A UserService should not contain order logic. A PaymentService
-    should not send emails directly. If the file handles more than
-    one clear domain, flag it.
 ```
 
 ### Security
@@ -262,17 +314,6 @@ These rules show the kind of architectural and semantic checks that traditional 
     mixing multiple concerns in one function body, or functions longer
     than ~60 lines. Suggest splitting if found.
 
-- id: meaningful_variable_names
-  name: "No cryptic abbreviations in domain code"
-  severity: warning
-  glob: "src/**/*.ts"
-  exclude: "src/**/*.test.ts"
-  prompt: |
-    Check if this file uses cryptic variable or function names like
-    mgr, proc, tmp, val, cb, fn, res (outside of route handlers),
-    or single-letter names outside of short lambdas and loop indices.
-    Domain code should use descriptive names.
-
 - id: no_raw_sql_strings
   name: "Use query builder or parameterized queries"
   severity: error
@@ -284,57 +325,25 @@ These rules show the kind of architectural and semantic checks that traditional 
     literals with ${} inside SQL strings are a red flag.
 ```
 
-### Testing
-
-```yaml
-- id: test_describes_behavior
-  name: "Test names should describe behavior, not implementation"
-  severity: warning
-  glob: "src/**/*.test.ts"
-  prompt: |
-    Check if the test descriptions (describe/it/test strings) describe
-    user-visible behavior or outcomes rather than implementation details.
-    Bad: "should call handleSubmit", "should set state to loading".
-    Good: "should show error message when email is invalid",
-    "should redirect to dashboard after login".
-
-- id: no_test_interdependence
-  name: "Tests must not depend on execution order"
-  severity: error
-  glob: "src/**/*.test.ts"
-  prompt: |
-    Check if tests in this file share mutable state across test cases
-    without proper setup/teardown. Look for: module-level let variables
-    mutated inside tests, missing beforeEach resets, or tests that only
-    pass when run after another specific test. Each test should be
-    independently runnable.
-```
-
-## How It Works
-
-1. **Config loading** — reads `.ai-linter.yml` and validates it against the JSON schema
-2. **File resolution** — resolves files via `--all` (glob), `--changed` (git diff), or explicit paths
-3. **Rule matching** — for each file, finds all rules whose `glob` matches and `exclude` doesn't
-4. **Caching** — checks if (file content hash + rule prompt hash) is already cached; skips API calls for cached results
-5. **AI linting** — sends each (file, rule) pair via OpenRouter to the configured AI model, which responds with `{ pass, message, line }`
-6. **Reporting** — groups violations by file and prints them to the console
-
-## Caching
-
-Results are cached in `.ai-linter/cache.json` based on:
-- SHA-256 hash of the file content
-- SHA-256 hash of the rule prompt
-
-The cache is automatically invalidated when either the file or the prompt changes. Use `ai-linter cache clear` to force a fresh run.
-
 ## Development
 
 ```bash
 npm run build          # Build with tsup
 npm run check          # Biome lint + format check
 npm test               # Unit tests
+npm run test:coverage  # Tests with coverage report
 npm run dev            # Run CLI directly via tsx
 ```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and PR guidelines.
+
+## Support
+
+If you find this tool useful, consider supporting development:
+
+[Buy Me a Coffee](https://buymeacoffee.com/mariuszk)
 
 ## License
 
