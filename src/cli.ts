@@ -36,7 +36,7 @@ rules: []
 const program = new Command()
 
 program
-  .name('ai-linter')
+  .name('ai-lint')
   .description('AI-powered code linter with custom YAML rules')
   .version('1.0.0')
 
