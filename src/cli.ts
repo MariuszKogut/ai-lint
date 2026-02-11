@@ -1,12 +1,37 @@
 #!/usr/bin/env node
+import fs from 'node:fs'
+import readline from 'node:readline/promises'
 import { Command } from 'commander'
+import dotenv from 'dotenv'
+import YAML from 'yaml'
 import { AnthropicClient } from './anthropic-client'
 import { CacheManager } from './cache-manager'
 import { ConfigLoader } from './config-loader'
 import { FileResolver } from './file-resolver'
 import { LinterEngine } from './linter-engine'
 import { Reporter } from './reporter'
+import { RuleGenerator } from './rule-generator'
 import { RuleMatcher } from './rule-matcher'
+
+dotenv.config({ quiet: true })
+
+const DEFAULT_CONFIG_CONTENT = `# ai-linter configuration
+# See: https://github.com/example/ai-linter
+
+# model: sonnet          # Default AI model (haiku | sonnet | opus)
+# concurrency: 5         # Max parallel API calls
+# git_base: main         # Base branch for --changed mode
+
+rules: []
+# Example rule:
+#   - id: no_console_log
+#     name: No console.log statements
+#     severity: warning
+#     glob: "src/**/*.ts"
+#     prompt: >
+#       Check that the file does not contain any console.log statements.
+#       Debug logging should use a proper logger instead.
+`
 
 const program = new Command()
 
@@ -24,6 +49,7 @@ program
   .option('--changed', 'Lint only git-changed files')
   .option('--base <branch>', 'Override git_base (used with --changed)')
   .option('--config <path>', 'Config file path', '.ai-linter.yml')
+  .option('--verbose', 'Show detailed progress (API calls vs cache hits)')
   .action(async (files: string[], options) => {
     try {
       // 1. Load config
@@ -31,8 +57,8 @@ program
       const config = loader.load(options.config)
 
       // 2. Check for API key
-      if (!process.env.ANTHROPIC_API_KEY) {
-        console.error('Error: ANTHROPIC_API_KEY environment variable is required')
+      if (!process.env.OPEN_ROUTER_KEY) {
+        console.error('Error: OPEN_ROUTER_KEY environment variable is required')
         process.exit(2)
       }
 
@@ -46,11 +72,12 @@ program
 
       let filesToLint: string[]
       if (options.all) {
-        filesToLint = await resolver.resolveAll(config.rules)
+        const globs = config.rules.map((r) => r.glob)
+        filesToLint = await resolver.resolveAll(globs)
       } else if (options.changed) {
-        filesToLint = await resolver.resolveChanged(config.rules)
+        filesToLint = await resolver.resolveChanged()
       } else if (files.length > 0) {
-        filesToLint = await resolver.resolveExplicit(files, config.rules)
+        filesToLint = resolver.resolveExplicit(files)
       } else {
         console.log('No files to lint. Use --all, --changed, or specify explicit files.')
         process.exit(0)
@@ -67,15 +94,28 @@ program
       const matcher = new RuleMatcher(config.rules)
       const reporter = new Reporter()
 
+      console.log(
+        `Linting ${filesToLint.length} files against ${config.rules.length} rules (model: ${config.model})...\n`,
+      )
+
       // 6. Create and run engine
       const engine = new LinterEngine({
         cache,
         client,
         matcher,
         reporter,
+        onProgress: (completed, total, job, cached) => {
+          if (options.verbose) {
+            const tag = cached ? 'cache' : 'api'
+            console.log(`  [${completed}/${total}] (${tag}) ${job.rule.id} — ${job.filePath}`)
+          } else {
+            process.stdout.write(`\r  [${completed}/${total}] ${job.rule.id} — ${job.filePath}`)
+            if (completed === total) process.stdout.write('\n\n')
+          }
+        },
       })
 
-      const exitCode = await engine.run(filesToLint, config)
+      const { exitCode } = await engine.run(filesToLint, config)
 
       // 7. Exit with appropriate code
       process.exit(exitCode)
@@ -107,6 +147,73 @@ program
     } catch (error) {
       if (error instanceof Error) {
         console.error(`Configuration error: ${error.message}`)
+      } else {
+        console.error('An unexpected error occurred')
+      }
+      process.exit(2)
+    }
+  })
+
+// --- generate-rule command ---
+program
+  .command('generate-rule')
+  .description('Interactively generate a new lint rule using AI')
+  .option('--config <path>', 'Config file path', '.ai-linter.yml')
+  .action(async (options) => {
+    try {
+      // 1. Check for API key
+      if (!process.env.OPEN_ROUTER_KEY) {
+        console.error('Error: OPEN_ROUTER_KEY environment variable is required')
+        process.exit(2)
+      }
+
+      // 2. Auto-init: create config file if it doesn't exist
+      const configPath = options.config
+      if (!fs.existsSync(configPath)) {
+        fs.writeFileSync(configPath, DEFAULT_CONFIG_CONTENT, 'utf-8')
+        console.log(`Created ${configPath} with default configuration.`)
+      }
+
+      // 3. Interactive prompt for rule description
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+      const description = await rl.question('Describe what the rule should check:\n> ')
+
+      if (!description.trim()) {
+        console.error('Error: Description cannot be empty')
+        rl.close()
+        process.exit(2)
+      }
+
+      // 4. Generate rule via AI
+      console.log('\nGenerating rule...')
+      const generator = new RuleGenerator()
+      const rule = await generator.generate(description.trim())
+
+      // 5. Show YAML preview
+      console.log('\nGenerated rule:\n')
+      console.log(YAML.stringify([rule]).trim())
+
+      // 6. Confirm
+      const answer = await rl.question('\nAdd this rule to config? (y/n) ')
+      rl.close()
+
+      if (answer.trim().toLowerCase() !== 'y') {
+        console.log('Aborted.')
+        return
+      }
+
+      // 7. Append rule to config
+      const fileContent = fs.readFileSync(configPath, 'utf-8')
+      const config = YAML.parse(fileContent) || {}
+      if (!Array.isArray(config.rules)) {
+        config.rules = []
+      }
+      config.rules.push(rule)
+      fs.writeFileSync(configPath, YAML.stringify(config), 'utf-8')
+      console.log(`Rule "${rule.id}" added to ${configPath}`)
+    } catch (error) {
+      if (error instanceof Error) {
+        console.error(`Error: ${error.message}`)
       } else {
         console.error('An unexpected error occurred')
       }

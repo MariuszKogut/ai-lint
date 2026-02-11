@@ -94,24 +94,53 @@ describe('CLI', () => {
   describe('lint command', () => {
     it('should show error when no mode specified and no files given', async () => {
       const { stdout, exitCode } = await runCli(['lint', '--config', testConfigPath], {
-        env: { ...process.env, ANTHROPIC_API_KEY: 'test-key' },
+        env: { ...process.env, OPEN_ROUTER_KEY: 'test-key' },
       })
 
       expect(exitCode).toBe(0)
       expect(stdout).toContain('No files to lint')
     })
 
-    it('should exit with code 2 when ANTHROPIC_API_KEY is missing', async () => {
-      const env = { ...process.env }
-      env.ANTHROPIC_API_KEY = undefined
-
+    it('should exit with code 2 when OPEN_ROUTER_KEY is missing', async () => {
       const result = await runCli(['lint', '--all', '--config', testConfigPath], {
-        env,
+        env: { ...process.env, OPEN_ROUTER_KEY: '' },
         reject: false,
       })
 
       expect(result.exitCode).toBe(2)
-      expect(result.stderr).toContain('ANTHROPIC_API_KEY')
+      expect(result.stderr).toContain('OPEN_ROUTER_KEY')
+    })
+
+    it('should resolve files with --all without crashing', async () => {
+      const result = await runCli(['lint', '--all', '--config', testConfigPath], {
+        env: { ...process.env, OPEN_ROUTER_KEY: 'test-key' },
+        reject: false,
+      })
+
+      // Should not crash with "Patterns must be a string" error
+      expect(result.stderr).not.toContain('Patterns must be a string')
+      expect(result.stdout).toContain('files checked')
+    })
+
+    it('should resolve files with --changed without crashing', async () => {
+      const result = await runCli(['lint', '--changed', '--config', testConfigPath], {
+        env: { ...process.env, OPEN_ROUTER_KEY: 'test-key' },
+        reject: false,
+      })
+
+      // Should not crash with "[object Object]" in git command
+      expect(result.stderr).not.toContain('[object Object]')
+    })
+
+    it('should resolve explicit files without crashing', async () => {
+      const result = await runCli(['lint', '--config', testConfigPath, 'src/cli.ts'], {
+        env: { ...process.env, OPEN_ROUTER_KEY: 'test-key' },
+        reject: false,
+      })
+
+      // Should not crash with type errors
+      expect(result.stderr).not.toContain('argument must be of type')
+      expect(result.stdout).toContain('file checked')
     })
   })
 

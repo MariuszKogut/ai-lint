@@ -1,10 +1,17 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { createOpenRouter } from '@openrouter/ai-sdk-provider'
+import { generateText, type LanguageModelV1, Output } from 'ai'
+import { z } from 'zod'
 import type { LintJob, LintResult, Model } from './types.js'
 
+function getOpenRouter() {
+  return createOpenRouter({ apiKey: process.env.OPEN_ROUTER_KEY })
+}
+
 const MODEL_MAP: Record<Model, string> = {
-  haiku: 'claude-haiku-4-5-20251001',
-  sonnet: 'claude-sonnet-4-5-20250929',
-  opus: 'claude-opus-4-6',
+  'gemini-flash': 'google/gemini-2.5-flash',
+  haiku: 'anthropic/claude-haiku-4.5',
+  sonnet: 'anthropic/claude-sonnet-4.5',
+  opus: 'anthropic/claude-opus-4.6',
 }
 
 const SYSTEM_PROMPT = `You are a code linter. Analyze the given file against the provided rule.
@@ -15,25 +22,20 @@ Format: { "pass": boolean, "message": string, "line": number | null }
   If pass=false, describe the violation.
 - "line": approximate line number of the first violation, or null`
 
-interface ApiResponse {
-  pass: boolean
-  message: string
-  line: number | null
-}
+const lintResponseSchema = z.object({
+  pass: z.boolean(),
+  message: z.string(),
+  line: z.number().nullable(),
+})
 
 export class AnthropicClient {
-  private client: Anthropic
-
-  constructor(private defaultModel: Model) {
-    this.client = new Anthropic()
-  }
+  constructor(private defaultModel: Model) {}
 
   async lint(job: LintJob): Promise<LintResult> {
     const startTime = Date.now()
     const model = job.rule.model ?? this.defaultModel
     const modelId = MODEL_MAP[model]
 
-    // Extract file extension for syntax highlighting in prompt
     const ext = job.filePath.split('.').pop() || 'txt'
 
     const userMessage = `## Rule: ${job.rule.name}
@@ -45,7 +47,7 @@ ${job.fileContent}
 \`\`\``
 
     try {
-      const response = await this.callApiWithRetry(modelId, userMessage)
+      const response = await this.callApiWithRetry(getOpenRouter()(modelId), userMessage)
       const durationMs = Date.now() - startTime
 
       return {
@@ -62,15 +64,15 @@ ${job.fileContent}
     } catch (error) {
       const durationMs = Date.now() - startTime
 
-      // Check for authentication errors
       if (
-        error instanceof Anthropic.AuthenticationError ||
-        (error instanceof Error && error.message.includes('401'))
+        error instanceof Error &&
+        (error.message.includes('401') ||
+          error.message.includes('Unauthorized') ||
+          error.message.includes('API key'))
       ) {
-        throw new Error('ANTHROPIC_API_KEY is invalid or missing')
+        throw new Error('OPEN_ROUTER_KEY is invalid or missing')
       }
 
-      // For other errors, return a failed result
       return {
         rule_id: job.rule.id,
         rule_name: job.rule.name,
@@ -85,50 +87,36 @@ ${job.fileContent}
   }
 
   private async callApiWithRetry(
-    modelId: string,
+    model: LanguageModelV1,
     userMessage: string,
     attempt = 1,
-  ): Promise<ApiResponse> {
+  ): Promise<z.infer<typeof lintResponseSchema>> {
     try {
-      const response = await this.client.messages.create({
-        model: modelId,
-        max_tokens: 1024,
-        temperature: 0,
+      const { output } = await generateText({
+        model,
+        output: Output.object({ schema: lintResponseSchema }),
         system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userMessage }],
+        prompt: userMessage,
+        temperature: 0,
+        maxTokens: 1024,
       })
 
-      // Extract text content from response
-      const textContent = response.content.find((block) => block.type === 'text')
-      if (!textContent || textContent.type !== 'text') {
-        throw new Error('No text content in API response')
-      }
-
-      // Parse JSON response
-      try {
-        const parsed = JSON.parse(textContent.text) as ApiResponse
-        return parsed
-      } catch {
+      if (!output) {
         throw new Error('AI response was not valid JSON')
       }
+
+      return output
     } catch (error) {
-      // Handle rate limiting and server errors with retry
-      const isRateLimited =
-        error instanceof Anthropic.RateLimitError ||
-        (error instanceof Error && error.message.includes('429'))
+      const isRetryable =
+        error instanceof Error &&
+        (/429|rate.limit/i.test(error.message) || /5\d{2}|server.error/i.test(error.message))
 
-      const isServerError =
-        error instanceof Anthropic.InternalServerError ||
-        (error instanceof Error && /5\d{2}/.test(error.message)) // 500-599
-
-      if ((isRateLimited || isServerError) && attempt < 3) {
-        // Exponential backoff: 1s, 2s, 4s
+      if (isRetryable && attempt < 3) {
         const delayMs = 1000 * 2 ** (attempt - 1)
         await new Promise((resolve) => setTimeout(resolve, delayMs))
-        return this.callApiWithRetry(modelId, userMessage, attempt + 1)
+        return this.callApiWithRetry(model, userMessage, attempt + 1)
       }
 
-      // Re-throw the error if retries exhausted or other error type
       throw error
     }
   }

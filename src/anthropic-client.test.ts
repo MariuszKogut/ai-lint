@@ -1,49 +1,22 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AnthropicClient } from './anthropic-client.js'
 import type { LintJob } from './types.js'
 
-// Mock the Anthropic SDK
-vi.mock('@anthropic-ai/sdk', () => {
-  const MockAnthropicClass = vi.fn()
-  MockAnthropicClass.prototype.messages = {
-    create: vi.fn(),
-  }
+// Mock the AI SDK
+const mockGenerateText = vi.fn()
+vi.mock('ai', () => ({
+  generateText: (...args: unknown[]) => mockGenerateText(...args),
+  Output: {
+    object: vi.fn((opts: unknown) => opts),
+  },
+}))
 
-  // Mock error classes
-  class AuthenticationError extends Error {
-    constructor(message: string) {
-      super(message)
-      this.name = 'AuthenticationError'
-    }
-  }
-
-  class RateLimitError extends Error {
-    constructor(message: string) {
-      super(message)
-      this.name = 'RateLimitError'
-    }
-  }
-
-  class InternalServerError extends Error {
-    constructor(message: string) {
-      super(message)
-      this.name = 'InternalServerError'
-    }
-  }
-
-  return {
-    default: Object.assign(MockAnthropicClass, {
-      AuthenticationError,
-      RateLimitError,
-      InternalServerError,
-    }),
-  }
-})
+vi.mock('@openrouter/ai-sdk-provider', () => ({
+  createOpenRouter: vi.fn(() => vi.fn((modelId: string) => ({ modelId }))),
+}))
 
 describe('AnthropicClient', () => {
   let client: AnthropicClient
-  let mockCreate: ReturnType<typeof vi.fn>
 
   const createMockJob = (overrides?: Partial<LintJob>): LintJob => ({
     rule: {
@@ -64,25 +37,15 @@ describe('AnthropicClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     client = new AnthropicClient('haiku')
-    // Get the mock create function
-    const MockedAnthropic = Anthropic as unknown as {
-      prototype: { messages: { create: ReturnType<typeof vi.fn> } }
-    }
-    mockCreate = MockedAnthropic.prototype.messages.create
   })
 
   it('should return correct LintResult on valid JSON response', async () => {
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            pass: true,
-            message: 'File complies with the rule',
-            line: null,
-          }),
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: {
+        pass: true,
+        message: 'File complies with the rule',
+        line: null,
+      },
     })
 
     const job = createMockJob()
@@ -102,17 +65,12 @@ describe('AnthropicClient', () => {
   })
 
   it('should return pass=true when API returns pass=true', async () => {
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            pass: true,
-            message: 'All good',
-            line: null,
-          }),
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: {
+        pass: true,
+        message: 'All good',
+        line: null,
+      },
     })
 
     const job = createMockJob()
@@ -123,17 +81,12 @@ describe('AnthropicClient', () => {
   })
 
   it('should return pass=false with line number when violation found', async () => {
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            pass: false,
-            message: 'Found console.log on line 1',
-            line: 1,
-          }),
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: {
+        pass: false,
+        message: 'Found console.log on line 1',
+        line: 1,
+      },
     })
 
     const job = createMockJob()
@@ -144,14 +97,9 @@ describe('AnthropicClient', () => {
     expect(result.line).toBe(1)
   })
 
-  it('should return pass=false with error message on invalid JSON response', async () => {
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: 'This is not valid JSON',
-        },
-      ],
+  it('should return pass=false with error message on null output', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: null,
     })
 
     const job = createMockJob()
@@ -162,45 +110,31 @@ describe('AnthropicClient', () => {
   })
 
   it('should retry on rate limit (429) and succeed on 2nd attempt', async () => {
-    // First call fails with rate limit
-    mockCreate
-      .mockRejectedValueOnce(new Anthropic.RateLimitError('Rate limited'))
-      .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              pass: true,
-              message: 'Success after retry',
-              line: null,
-            }),
-          },
-        ],
-      })
+    mockGenerateText.mockRejectedValueOnce(new Error('429 Rate limited')).mockResolvedValueOnce({
+      output: {
+        pass: true,
+        message: 'Success after retry',
+        line: null,
+      },
+    })
 
     const job = createMockJob()
     const result = await client.lint(job)
 
     expect(result.pass).toBe(true)
     expect(result.message).toBe('Success after retry')
-    expect(mockCreate).toHaveBeenCalledTimes(2)
+    expect(mockGenerateText).toHaveBeenCalledTimes(2)
   })
 
   it('should retry on server error (500) and succeed on 2nd attempt', async () => {
-    // First call fails with server error
-    mockCreate
-      .mockRejectedValueOnce(new Anthropic.InternalServerError('Internal server error'))
+    mockGenerateText
+      .mockRejectedValueOnce(new Error('500 Internal server error'))
       .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              pass: true,
-              message: 'Success after retry',
-              line: null,
-            }),
-          },
-        ],
+        output: {
+          pass: true,
+          message: 'Success after retry',
+          line: null,
+        },
       })
 
     const job = createMockJob()
@@ -208,34 +142,27 @@ describe('AnthropicClient', () => {
 
     expect(result.pass).toBe(true)
     expect(result.message).toBe('Success after retry')
-    expect(mockCreate).toHaveBeenCalledTimes(2)
+    expect(mockGenerateText).toHaveBeenCalledTimes(2)
   })
 
   it('should throw error when all retries exhausted', async () => {
-    // All attempts fail
-    mockCreate.mockRejectedValue(new Anthropic.RateLimitError('Rate limited'))
+    mockGenerateText.mockRejectedValue(new Error('429 Rate limited'))
 
     const job = createMockJob()
     const result = await client.lint(job)
 
-    // Since we catch all errors except auth errors, it should return a failed result
     expect(result.pass).toBe(false)
     expect(result.message).toContain('Rate limited')
-    expect(mockCreate).toHaveBeenCalledTimes(3) // Original + 2 retries
+    expect(mockGenerateText).toHaveBeenCalledTimes(3)
   })
 
   it('should use rule model override over default model', async () => {
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({
-            pass: true,
-            message: 'OK',
-            line: null,
-          }),
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: {
+        pass: true,
+        message: 'OK',
+        line: null,
+      },
     })
 
     const job = createMockJob({
@@ -245,84 +172,69 @@ describe('AnthropicClient', () => {
         severity: 'error',
         glob: '**/*.ts',
         prompt: 'Check the file',
-        model: 'opus', // Override default
+        model: 'opus',
       },
     })
 
     await client.lint(job)
 
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'claude-opus-4-6', // Should use opus, not haiku
+        model: { modelId: 'anthropic/claude-opus-4.6' },
       }),
     )
   })
 
   it('should throw error on authentication failure (401)', async () => {
-    mockCreate.mockRejectedValue(new Anthropic.AuthenticationError('Invalid API key'))
+    mockGenerateText.mockRejectedValue(new Error('401 Unauthorized'))
 
     const job = createMockJob()
 
-    await expect(client.lint(job)).rejects.toThrow('ANTHROPIC_API_KEY is invalid or missing')
+    await expect(client.lint(job)).rejects.toThrow('OPEN_ROUTER_KEY is invalid or missing')
   })
 
   it('should use correct model mapping for haiku', async () => {
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({ pass: true, message: 'OK', line: null }),
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'OK', line: null },
     })
 
     const job = createMockJob()
     await client.lint(job)
 
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'claude-haiku-4-5-20251001',
+        model: { modelId: 'anthropic/claude-haiku-4.5' },
       }),
     )
   })
 
   it('should use correct model mapping for sonnet', async () => {
     client = new AnthropicClient('sonnet')
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({ pass: true, message: 'OK', line: null }),
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'OK', line: null },
     })
 
     const job = createMockJob()
     await client.lint(job)
 
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'claude-sonnet-4-5-20250929',
+        model: { modelId: 'anthropic/claude-sonnet-4.5' },
       }),
     )
   })
 
   it('should use correct API parameters', async () => {
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({ pass: true, message: 'OK', line: null }),
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'OK', line: null },
     })
 
     const job = createMockJob()
     await client.lint(job)
 
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        max_tokens: 1024,
+        maxTokens: 1024,
         temperature: 0,
         system: expect.stringContaining('You are a code linter'),
       }),
@@ -330,13 +242,8 @@ describe('AnthropicClient', () => {
   })
 
   it('should include rule name and prompt in user message', async () => {
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify({ pass: true, message: 'OK', line: null }),
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'OK', line: null },
     })
 
     const job = createMockJob({
@@ -351,25 +258,15 @@ describe('AnthropicClient', () => {
 
     await client.lint(job)
 
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        messages: [
-          {
-            role: 'user',
-            content: expect.stringContaining('Custom Rule Name'),
-          },
-        ],
+        prompt: expect.stringContaining('Custom Rule Name'),
       }),
     )
 
-    expect(mockCreate).toHaveBeenCalledWith(
+    expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        messages: [
-          {
-            role: 'user',
-            content: expect.stringContaining('This is a custom prompt'),
-          },
-        ],
+        prompt: expect.stringContaining('This is a custom prompt'),
       }),
     )
   })

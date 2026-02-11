@@ -10,17 +10,18 @@ import { Reporter } from './reporter.js'
 import { RuleMatcher } from './rule-matcher.js'
 import type { LinterConfig } from './types.js'
 
-// Mock the Anthropic SDK at module level
-const mockCreate = vi.fn()
-vi.mock('@anthropic-ai/sdk', () => {
-  return {
-    default: vi.fn().mockImplementation(() => ({
-      messages: {
-        create: mockCreate,
-      },
-    })),
-  }
-})
+// Mock the AI SDK at module level
+const mockGenerateText = vi.fn()
+vi.mock('ai', () => ({
+  generateText: (...args: unknown[]) => mockGenerateText(...args),
+  Output: {
+    object: vi.fn((opts: unknown) => opts),
+  },
+}))
+
+vi.mock('@openrouter/ai-sdk-provider', () => ({
+  createOpenRouter: vi.fn(() => vi.fn((modelId: string) => ({ modelId }))),
+}))
 
 describe('E2E Tests — Full Workflow', () => {
   let tempDir: string
@@ -30,10 +31,10 @@ describe('E2E Tests — Full Workflow', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'ai-linter-e2e-'))
 
     // Clear mock calls
-    mockCreate.mockClear()
+    mockGenerateText.mockClear()
 
     // Set API key for tests
-    process.env.ANTHROPIC_API_KEY = 'test-key'
+    process.env.OPEN_ROUTER_KEY = 'test-key'
   })
 
   afterEach(() => {
@@ -128,54 +129,24 @@ ${fullConfig.rules
     writeFile('file3.ts', '// valid code\n')
 
     // Mock API responses
-    mockCreate
+    mockGenerateText
       .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: '{"pass": false, "message": "Found console.log on line 1", "line": 1}',
-          },
-        ],
+        output: { pass: false, message: 'Found console.log on line 1', line: 1 },
       })
       .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: '{"pass": false, "message": "File exceeds 100 lines", "line": null}',
-          },
-        ],
+        output: { pass: false, message: 'File exceeds 100 lines', line: null },
       })
       .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: '{"pass": true, "message": "No console.log found", "line": null}',
-          },
-        ],
+        output: { pass: true, message: 'No console.log found', line: null },
       })
       .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: '{"pass": true, "message": "File is under 100 lines", "line": null}',
-          },
-        ],
+        output: { pass: true, message: 'File is under 100 lines', line: null },
       })
       .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: '{"pass": true, "message": "No console.log found", "line": null}',
-          },
-        ],
+        output: { pass: true, message: 'No console.log found', line: null },
       })
       .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: '{"pass": true, "message": "File is under 100 lines", "line": null}',
-          },
-        ],
+        output: { pass: true, message: 'File is under 100 lines', line: null },
       })
 
     const results = await runLinter([
@@ -212,13 +183,8 @@ ${fullConfig.rules
     writeFile('file1.ts', 'const x = 1;\n')
     writeFile('file2.ts', 'const y = 2;\n')
 
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: '{"pass": true, "message": "No console.log found", "line": null}',
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'No console.log found', line: null },
     })
 
     const results = await runLinter([join(tempDir, 'file1.ts'), join(tempDir, 'file2.ts')])
@@ -243,13 +209,8 @@ ${fullConfig.rules
 
     writeFile('file1.ts', '// short file\n')
 
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: '{"pass": false, "message": "File could be shorter", "line": null}',
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: false, message: 'File could be shorter', line: null },
     })
 
     const results = await runLinter([join(tempDir, 'file1.ts')])
@@ -282,22 +243,12 @@ ${fullConfig.rules
 
     writeFile('file1.ts', "console.log('test');\n")
 
-    mockCreate
+    mockGenerateText
       .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: '{"pass": false, "message": "Found console.log", "line": 1}',
-          },
-        ],
+        output: { pass: false, message: 'Found console.log', line: 1 },
       })
       .mockResolvedValueOnce({
-        content: [
-          {
-            type: 'text',
-            text: '{"pass": false, "message": "File too long", "line": null}',
-          },
-        ],
+        output: { pass: false, message: 'File too long', line: null },
       })
 
     const results = await runLinter([join(tempDir, 'file1.ts')])
@@ -322,24 +273,19 @@ ${fullConfig.rules
 
     writeFile('file1.ts', 'const x = 1;\n')
 
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: '{"pass": true, "message": "No console.log found", "line": null}',
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'No console.log found', line: null },
     })
 
     // First run
     await runLinter([join(tempDir, 'file1.ts')])
-    expect(mockCreate).toHaveBeenCalledTimes(1)
+    expect(mockGenerateText).toHaveBeenCalledTimes(1)
 
     // Second run — should use cache
-    mockCreate.mockClear()
+    mockGenerateText.mockClear()
     const results = await runLinter([join(tempDir, 'file1.ts')])
 
-    expect(mockCreate).toHaveBeenCalledTimes(0) // No API calls
+    expect(mockGenerateText).toHaveBeenCalledTimes(0) // No API calls
     expect(results.length).toBe(1)
     expect(results[0].cached).toBe(true)
   })
@@ -361,27 +307,22 @@ ${fullConfig.rules
     writeFile('file1.ts', 'const x = 1;\n')
     writeFile('file2.ts', 'const y = 2;\n')
 
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: '{"pass": true, "message": "No console.log found", "line": null}',
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'No console.log found', line: null },
     })
 
     // First run
     await runLinter([join(tempDir, 'file1.ts'), join(tempDir, 'file2.ts')])
-    expect(mockCreate).toHaveBeenCalledTimes(2)
+    expect(mockGenerateText).toHaveBeenCalledTimes(2)
 
     // Modify file1
     writeFile('file1.ts', 'const x = 2;\n')
 
     // Second run
-    mockCreate.mockClear()
+    mockGenerateText.mockClear()
     const results = await runLinter([join(tempDir, 'file1.ts'), join(tempDir, 'file2.ts')])
 
-    expect(mockCreate).toHaveBeenCalledTimes(1) // Only file1 re-linted
+    expect(mockGenerateText).toHaveBeenCalledTimes(1) // Only file1 re-linted
     expect(results.find((r) => r.file.includes('file1.ts'))?.cached).toBe(false)
     expect(results.find((r) => r.file.includes('file2.ts'))?.cached).toBe(true)
   })
@@ -402,18 +343,13 @@ ${fullConfig.rules
 
     writeFile('file1.ts', 'const x = 1;\n')
 
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: '{"pass": true, "message": "No console.log found", "line": null}',
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'No console.log found', line: null },
     })
 
     // First run
     await runLinter([join(tempDir, 'file1.ts')])
-    expect(mockCreate).toHaveBeenCalledTimes(1)
+    expect(mockGenerateText).toHaveBeenCalledTimes(1)
 
     // Change rule prompt
     writeConfig({
@@ -429,10 +365,10 @@ ${fullConfig.rules
     })
 
     // Second run
-    mockCreate.mockClear()
+    mockGenerateText.mockClear()
     const results = await runLinter([join(tempDir, 'file1.ts')])
 
-    expect(mockCreate).toHaveBeenCalledTimes(1) // Re-linted due to prompt change
+    expect(mockGenerateText).toHaveBeenCalledTimes(1) // Re-linted due to prompt change
     expect(results[0].cached).toBe(false)
   })
 
@@ -470,7 +406,7 @@ rules:
     const results = await runLinter([join(tempDir, 'file1.ts')])
 
     expect(results.length).toBe(0) // No matching rules
-    expect(mockCreate).toHaveBeenCalledTimes(0)
+    expect(mockGenerateText).toHaveBeenCalledTimes(0)
   })
 
   // Test 10: Exclude pattern
@@ -491,19 +427,14 @@ rules:
     writeFile('file1.ts', 'const x = 1;\n')
     writeFile('file2.test.ts', 'const y = 2;\n')
 
-    mockCreate.mockResolvedValue({
-      content: [
-        {
-          type: 'text',
-          text: '{"pass": true, "message": "No console.log found", "line": null}',
-        },
-      ],
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'No console.log found', line: null },
     })
 
     const results = await runLinter([join(tempDir, 'file1.ts'), join(tempDir, 'file2.test.ts')])
 
     expect(results.length).toBe(1) // Only file1.ts matched
     expect(results[0].file).toContain('file1.ts')
-    expect(mockCreate).toHaveBeenCalledTimes(1)
+    expect(mockGenerateText).toHaveBeenCalledTimes(1)
   })
 })

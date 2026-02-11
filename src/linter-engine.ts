@@ -3,17 +3,20 @@ import pLimit from 'p-limit'
 import type { AnthropicClient } from './anthropic-client.js'
 import { CacheManager } from './cache-manager.js'
 import type { RuleMatcher } from './rule-matcher.js'
-import type { LintJob, LintResult, LintSummary, LinterConfig } from './types.js'
+import type { LinterConfig, LintJob, LintResult, LintSummary } from './types.js'
 
 export interface Reporter {
   report(results: LintResult[], summary: LintSummary): void
 }
+
+export type ProgressCallback = (completed: number, total: number, job: LintJob, cached: boolean) => void
 
 interface LinterEngineDeps {
   cache: CacheManager
   client: AnthropicClient
   matcher: RuleMatcher
   reporter: Reporter
+  onProgress?: ProgressCallback
 }
 
 export class LinterEngine {
@@ -63,6 +66,8 @@ export class LinterEngine {
     // Separate jobs into cached and uncached
     const cachedResults: LintResult[] = []
     const uncachedJobs: LintJob[] = []
+    const totalJobs = jobs.length
+    let completedJobs = 0
 
     for (const job of jobs) {
       const cachedResult = this.deps.cache.lookup(
@@ -73,8 +78,9 @@ export class LinterEngine {
       )
 
       if (cachedResult) {
-        // Use cached result (already has cached: true from cache)
         cachedResults.push({ ...cachedResult, cached: true })
+        completedJobs++
+        this.deps.onProgress?.(completedJobs, totalJobs, job, true)
       } else {
         uncachedJobs.push(job)
       }
@@ -87,6 +93,8 @@ export class LinterEngine {
         const result = await this.deps.client.lint(job)
         // Store result in cache
         this.deps.cache.store(job.rule.id, job.filePath, job.fileHash, job.promptHash, result)
+        completedJobs++
+        this.deps.onProgress?.(completedJobs, totalJobs, job, false)
         return result
       }),
     )

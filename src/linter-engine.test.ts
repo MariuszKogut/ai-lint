@@ -3,7 +3,7 @@ import type { AnthropicClient } from './anthropic-client.js'
 import type { CacheManager } from './cache-manager.js'
 import { LinterEngine, type Reporter } from './linter-engine.js'
 import type { RuleMatcher } from './rule-matcher.js'
-import type { LintResult, LintRule, LinterConfig } from './types.js'
+import type { LinterConfig, LintResult, LintRule } from './types.js'
 
 describe('LinterEngine', () => {
   let mockCache: CacheManager
