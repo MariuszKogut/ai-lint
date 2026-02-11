@@ -10,16 +10,18 @@ AI coding assistants are awesome — but they make mistakes. They shove business
 
 The rules are especially powerful when generated with tools like [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or similar AI coding assistants. Describe what you want to enforce, let the AI draft the rule — done. When you run into false positives (e.g. a FAQ page that legitimately mentions error messages), just tweak the `exclude` pattern or make the prompt more specific. The feedback loop is fast because rules are just YAML and natural language.
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕-yellow)](https://buymeacoffee.com/mariuszk)
+
 ## 📦 Installation
 
 ```bash
-npm i -g ai-lint
+npm i -g @handmade-systems/ai-lint
 ```
 
 Or clone and build locally:
 
 ```bash
-git clone https://github.com/MariuszKogut/ai-lint.git
+git clone https://github.com/handmade-systems/ai-lint.git
 cd ai-lint
 npm install && npm run build
 npm link   # makes ai-lint available globally
@@ -307,12 +309,6 @@ npm run dev            # Run CLI via tsx
 ## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style, and PR guidelines.
-
-## ☕ Support
-
-If ai-lint saves you time, consider buying me a coffee:
-
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕-yellow)](https://buymeacoffee.com/mariuszk)
 
 ## 📄 License
 

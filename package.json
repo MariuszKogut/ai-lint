@@ -1,5 +1,5 @@
 {
-  "name": "ai-lint",
+  "name": "@handmade-systems/ai-lint",
   "version": "0.1.0",
   "description": "AI-powered code linter with custom YAML rules — control AI with AI",
   "type": "module",
@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MariuszKogut/ai-lint.git"
+    "url": "https://github.com/handmade-systems/ai-lint.git"
   },
   "keywords": [
     "linter",
@@ -30,9 +30,9 @@
   ],
   "author": "Mariusz Kogut",
   "license": "MIT",
-  "homepage": "https://github.com/MariuszKogut/ai-lint#readme",
+  "homepage": "https://github.com/handmade-systems/ai-lint#readme",
   "bugs": {
-    "url": "https://github.com/MariuszKogut/ai-lint/issues"
+    "url": "https://github.com/handmade-systems/ai-lint/issues"
   },
   "scripts": {
     "build": "tsup",
