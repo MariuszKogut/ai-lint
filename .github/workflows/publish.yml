@@ -6,6 +6,7 @@ on:
 
 jobs:
   publish:
+    name: '🚀 Publish'
     runs-on: ubuntu-latest
     environment: ci
     permissions:
@@ -17,25 +18,26 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           registry-url: https://registry.npmjs.org
 
-      - run: npm ci
+      - name: '📦 Install packages'
+        run: npm ci
 
-      - name: Set version from release tag
+      - name: '🏷️ Set version from release tag'
         run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
 
-      - name: Lint & format check
+      - name: '🔍 Lint & format check'
         run: npm run check
 
-      - name: Build
+      - name: '🔧 Build'
         run: npm run build
 
-      - name: Unit & E2E tests
+      - name: '🔬 Tests'
         run: npm test
 
-      - name: Publish to npm
+      - name: '🚀 Publish to npm'
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

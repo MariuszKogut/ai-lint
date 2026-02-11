@@ -44,3 +44,9 @@ jobs:
         if: always()
         with:
           files: junit.xml
+
+      - name: '📈 Coverage Report'
+        uses: davelosert/vitest-coverage-report-action@v2
+        if: always()
+        with:
+          file-coverage-mode: changes
