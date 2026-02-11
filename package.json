@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/MariuszKogut/tool-ai-linter.git"
+    "url": "https://github.com/MariuszKogut/ai-lint.git"
   },
   "keywords": [
     "linter",
@@ -30,9 +30,9 @@
   ],
   "author": "Mariusz Kogut",
   "license": "MIT",
-  "homepage": "https://github.com/MariuszKogut/tool-ai-linter#readme",
+  "homepage": "https://github.com/MariuszKogut/ai-lint#readme",
   "bugs": {
-    "url": "https://github.com/MariuszKogut/tool-ai-linter/issues"
+    "url": "https://github.com/MariuszKogut/ai-lint/issues"
   },
   "scripts": {
     "build": "tsup",

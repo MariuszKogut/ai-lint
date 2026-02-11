@@ -5,8 +5,8 @@ Thanks for your interest in contributing! Here's how to get started.
 ## Development Setup
 
 ```bash
-git clone https://github.com/MariuszKogut/tool-ai-linter.git
-cd tool-ai-linter
+git clone https://github.com/MariuszKogut/ai-lint.git
+cd ai-lint
 npm install
 ```
 
