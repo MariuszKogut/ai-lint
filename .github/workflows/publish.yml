@@ -8,7 +8,7 @@ jobs:
   publish:
     name: '🚀 Publish'
     runs-on: ubuntu-latest
-    environment: ci
+    environment: CI
     permissions:
       contents: read
       id-token: write
