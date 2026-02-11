@@ -1,0 +1,10 @@
+model: haiku
+concurrency: 5
+git_base: main
+
+rules:
+  - id: no_console_log
+    name: "No console.log in production code"
+    severity: critical
+    glob: "src/**/*.ts"
+    prompt: "Check for console.log statements"

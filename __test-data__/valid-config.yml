@@ -1,0 +1,22 @@
+model: haiku
+concurrency: 5
+git_base: main
+
+rules:
+  - id: no_console_log
+    name: "No console.log in production code"
+    severity: error
+    glob: "src/**/*.ts"
+    exclude: "src/**/*.test.ts"
+    prompt: |
+      Check if this file contains console.log statements
+      that are not wrapped in a debug/development condition.
+      If found, report the violation.
+
+  - id: max_file_length
+    name: "File should not exceed 300 lines"
+    severity: warning
+    glob: "src/**/*.{ts,tsx}"
+    prompt: |
+      Check if this file exceeds 300 lines.
+      If so, suggest how it could be split.

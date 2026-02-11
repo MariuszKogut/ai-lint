@@ -1,0 +1,149 @@
+import { readFileSync } from 'node:fs'
+import pLimit from 'p-limit'
+import type { AnthropicClient } from './anthropic-client.js'
+import { CacheManager } from './cache-manager.js'
+import type { RuleMatcher } from './rule-matcher.js'
+import type { LintJob, LintResult, LintSummary, LinterConfig } from './types.js'
+
+export interface Reporter {
+  report(results: LintResult[], summary: LintSummary): void
+}
+
+interface LinterEngineDeps {
+  cache: CacheManager
+  client: AnthropicClient
+  matcher: RuleMatcher
+  reporter: Reporter
+}
+
+export class LinterEngine {
+  constructor(private deps: LinterEngineDeps) {}
+
+  async run(
+    filePaths: string[],
+    config: LinterConfig,
+  ): Promise<{ results: LintResult[]; summary: LintSummary; exitCode: number }> {
+    const startTime = Date.now()
+
+    // Load cache from disk
+    this.deps.cache.load()
+
+    // Create jobs for all (file, rule) combinations
+    const jobs: LintJob[] = []
+    const uniqueFiles = new Set<string>()
+
+    for (const filePath of filePaths) {
+      const matchingRules = this.deps.matcher.matchFile(filePath)
+
+      // Skip files with no matching rules
+      if (matchingRules.length === 0) {
+        continue
+      }
+
+      uniqueFiles.add(filePath)
+
+      // Read file content once for all rules
+      const fileContent = readFileSync(filePath, 'utf-8')
+      const fileHash = CacheManager.hash(fileContent)
+
+      // Create a job for each matching rule
+      for (const rule of matchingRules) {
+        const promptHash = CacheManager.hash(rule.prompt)
+
+        jobs.push({
+          rule,
+          filePath,
+          fileContent,
+          fileHash,
+          promptHash,
+        })
+      }
+    }
+
+    // Separate jobs into cached and uncached
+    const cachedResults: LintResult[] = []
+    const uncachedJobs: LintJob[] = []
+
+    for (const job of jobs) {
+      const cachedResult = this.deps.cache.lookup(
+        job.rule.id,
+        job.filePath,
+        job.fileHash,
+        job.promptHash,
+      )
+
+      if (cachedResult) {
+        // Use cached result (already has cached: true from cache)
+        cachedResults.push({ ...cachedResult, cached: true })
+      } else {
+        uncachedJobs.push(job)
+      }
+    }
+
+    // Run uncached jobs in parallel with concurrency limit
+    const limit = pLimit(config.concurrency)
+    const lintPromises = uncachedJobs.map((job) =>
+      limit(async () => {
+        const result = await this.deps.client.lint(job)
+        // Store result in cache
+        this.deps.cache.store(job.rule.id, job.filePath, job.fileHash, job.promptHash, result)
+        return result
+      }),
+    )
+
+    const uncachedResults = await Promise.all(lintPromises)
+
+    // Combine all results
+    const allResults = [...cachedResults, ...uncachedResults]
+
+    // Save cache to disk
+    this.deps.cache.save()
+
+    // Compute summary
+    const durationMs = Date.now() - startTime
+    const summary = this.computeSummary(allResults, uniqueFiles.size, durationMs)
+
+    // Report results
+    this.deps.reporter.report(allResults, summary)
+
+    // Determine exit code (1 if any errors, 0 otherwise)
+    const exitCode = summary.errors > 0 ? 1 : 0
+
+    return { results: allResults, summary, exitCode }
+  }
+
+  private computeSummary(
+    results: LintResult[],
+    totalFiles: number,
+    durationMs: number,
+  ): LintSummary {
+    let passed = 0
+    let errors = 0
+    let warnings = 0
+    let cached = 0
+
+    for (const result of results) {
+      if (result.pass) {
+        passed++
+      } else if (result.severity === 'error') {
+        errors++
+      } else {
+        warnings++
+      }
+
+      if (result.cached) {
+        cached++
+      }
+    }
+
+    return {
+      total_files: totalFiles,
+      total_rules_applied: results.length,
+      passed,
+      errors,
+      warnings,
+      cached,
+      duration_ms: durationMs,
+    }
+  }
+}

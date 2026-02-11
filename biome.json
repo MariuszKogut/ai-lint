@@ -1,0 +1,57 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.8.3/schema.json",
+  "organizeImports": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "correctness": {
+        "recommended": true,
+        "noUnusedImports": {
+          "level": "error",
+          "fix": "unsafe"
+        },
+        "noUnusedVariables": {
+          "level": "error",
+          "fix": "none"
+        },
+        "noUndeclaredVariables": "off"
+      },
+      "complexity": {
+        "recommended": true,
+        "noBannedTypes": "off"
+      },
+      "suspicious": {
+        "recommended": true,
+        "noArrayIndexKey": "off"
+      }
+    }
+  },
+  "formatter": {
+    "lineWidth": 100,
+    "indentStyle": "space"
+  },
+  "javascript": {
+    "formatter": {
+      "semicolons": "asNeeded",
+      "quoteStyle": "single"
+    }
+  },
+  "overrides": [
+    {
+      "include": ["**/*.test.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
+    }
+  ],
+  "files": {
+    "ignore": ["node_modules/*", "dist/*", ".claude-code-workflow/*"]
+  }
+}

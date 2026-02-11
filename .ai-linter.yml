@@ -1,0 +1,34 @@
+model: haiku
+concurrency: 5
+git_base: main
+
+rules:
+  - id: class_based_modules
+    name: "Modules should export classes, not loose functions"
+    severity: warning
+    glob: "src/**/*.ts"
+    exclude: "src/**/*.test.ts"
+    prompt: |
+      Check if this file exports a class as its main interface.
+      Files should prefer exporting a class over many individual functions.
+      Exceptions: types.ts (only types), cli.ts (CLI entry point).
+      If the file exports only types/interfaces, that's fine.
+
+  - id: no_any
+    name: "No explicit any types"
+    severity: error
+    glob: "src/**/*.ts"
+    exclude: "src/**/*.test.ts"
+    prompt: |
+      Check if this file uses 'any' type annotations.
+      Using 'any' bypasses TypeScript's type system.
+      Exceptions: catch clause variables.
+
+  - id: test_coverage
+    name: "Test files should have meaningful assertions"
+    severity: warning
+    glob: "src/**/*.test.ts"
+    prompt: |
+      Check if this test file has meaningful assertions.
+      Each test (it/test block) should have at least one expect() call.
+      Tests without assertions are useless.

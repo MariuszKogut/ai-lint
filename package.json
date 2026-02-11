@@ -1,0 +1,56 @@
+{
+  "name": "ai-linter",
+  "version": "0.1.0",
+  "description": "AI-powered code linter with custom YAML rules and Anthropic API",
+  "type": "module",
+  "bin": {
+    "ai-linter": "./dist/cli.js"
+  },
+  "files": ["dist", "LICENSE"],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Handmade-Systems/tool-ai-linter.git"
+  },
+  "keywords": ["linter", "ai", "claude", "anthropic", "code-quality", "cli", "lint"],
+  "author": "Handmade Systems",
+  "license": "MIT",
+  "homepage": "https://github.com/Handmade-Systems/tool-ai-linter#readme",
+  "bugs": {
+    "url": "https://github.com/Handmade-Systems/tool-ai-linter/issues"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:system": "vitest run src/*.system.test.ts",
+    "lint": "biome check . --write --unsafe",
+    "check": "biome check .",
+    "build:tsc": "tsc --project tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.37.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "fast-glob": "^3.3.3",
+    "micromatch": "^4.0.8",
+    "p-limit": "^6.1.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.8.3",
+    "@types/micromatch": "^4.0.10",
+    "@types/node": "^22.19.11",
+    "execa": "^9.6.1",
+    "tsup": "^8.3.6",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.0"
+  }
+}

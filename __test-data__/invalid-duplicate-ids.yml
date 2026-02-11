@@ -1,0 +1,16 @@
+model: haiku
+concurrency: 5
+git_base: main
+
+rules:
+  - id: no_console_log
+    name: "No console.log in production code"
+    severity: error
+    glob: "src/**/*.ts"
+    prompt: "Check for console.log statements"
+
+  - id: no_console_log
+    name: "Duplicate rule ID"
+    severity: warning
+    glob: "src/**/*.tsx"
+    prompt: "Another console.log check"

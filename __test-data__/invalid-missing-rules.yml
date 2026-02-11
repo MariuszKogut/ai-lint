@@ -1,0 +1,3 @@
+model: haiku
+concurrency: 5
+git_base: main
