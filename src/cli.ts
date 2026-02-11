@@ -20,7 +20,7 @@ const require = createRequire(import.meta.url)
 const { version: PKG_VERSION } = require('../package.json')
 
 const DEFAULT_CONFIG_CONTENT = `# ai-lint configuration
-# See: https://github.com/MariuszKogut/ai-lint
+# See: https://github.com/handmade-systems/ai-lint
 
 # model: gemini-flash    # Default AI model (gemini-flash | haiku | sonnet | opus)
 # concurrency: 5         # Max parallel API calls

@@ -5,7 +5,7 @@ Thanks for your interest in contributing! Here's how to get started.
 ## Development Setup
 
 ```bash
-git clone https://github.com/MariuszKogut/ai-lint.git
+git clone https://github.com/handmade-systems/ai-lint.git
 cd ai-lint
 npm install
 ```

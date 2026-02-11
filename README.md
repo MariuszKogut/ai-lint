@@ -19,7 +19,7 @@ npm i -g @handmade-systems/ai-lint
 Or clone and build locally:
 
 ```bash
-git clone https://github.com/MariuszKogut/ai-lint.git
+git clone https://github.com/handmade-systems/ai-lint.git
 cd ai-lint
 npm install && npm run build
 npm link   # makes ai-lint available globally
