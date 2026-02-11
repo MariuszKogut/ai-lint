@@ -28,22 +28,39 @@ concurrency: 5
 git_base: main
 
 rules:
-  - id: no_console_log
-    name: "No console.log in production code"
+  - id: no_logic_in_routes
+    name: "No business logic in route handlers"
+    severity: error
+    glob: "src/routes/**/*.ts"
+    prompt: |
+      Check if this route handler contains business logic.
+      Route handlers should only: parse the request, call a service/use-case,
+      and return a response. Any validation logic, data transformation,
+      database queries, or conditional business rules should live in a
+      separate service layer. Flag if you see more than trivial
+      request/response mapping.
+
+  - id: no_direct_db_in_components
+    name: "React components must not access the database directly"
+    severity: error
+    glob: "src/components/**/*.tsx"
+    prompt: |
+      Check if this React component imports or calls database clients
+      directly (e.g. prisma, drizzle, knex, mongoose, sql, pool.query).
+      Data fetching should happen in server actions, API routes, or
+      dedicated data-access layers — never inside component code.
+
+  - id: error_messages_no_internals
+    name: "User-facing errors must not leak internals"
     severity: error
     glob: "src/**/*.ts"
     exclude: "src/**/*.test.ts"
     prompt: |
-      Check if this file contains console.log statements.
-      Logging should use a proper logger, not console.log.
-
-  - id: test_assertions
-    name: "Tests must have assertions"
-    severity: warning
-    glob: "src/**/*.test.ts"
-    prompt: |
-      Check if every test (it/test block) has at least one expect() call.
-      Tests without assertions are useless.
+      Check if error messages returned to the client expose internal
+      details like stack traces, database table names, internal file paths,
+      SQL queries, or third-party service URLs. User-facing error responses
+      should contain generic messages. Internal details should only be logged
+      server-side.
 ```
 
 2. Run the linter:
@@ -110,7 +127,7 @@ Configuration is valid
   Model: haiku
   Concurrency: 5
   Git base: main
-  Rules: 3 (no_console_log, test_assertions, max_complexity)
+  Rules: 3 (no_logic_in_routes, no_direct_db_in_components, error_messages_no_internals)
 ```
 
 ### `ai-linter cache clear`
@@ -153,6 +170,135 @@ The config file (`.ai-linter.yml`) is validated against a JSON schema (`src/sche
 | `exclude` | `string` | no | Glob pattern to exclude files |
 | `prompt` | `string` | yes | Natural-language lint instruction |
 | `model` | `"haiku"` \| `"sonnet"` \| `"opus"` | no | Override the default model |
+
+## Example Rules
+
+These rules show the kind of architectural and semantic checks that traditional linters can't enforce — the sweet spot for an AI linter.
+
+### Architecture & Separation of Concerns
+
+```yaml
+- id: no_logic_in_routes
+  name: "No business logic in route handlers"
+  severity: error
+  glob: "src/routes/**/*.ts"
+  prompt: |
+    Check if this route handler contains business logic.
+    Route handlers should only: parse the request, call a service/use-case,
+    and return a response. Any validation logic, data transformation,
+    database queries, or conditional business rules should live in a
+    separate service layer. Flag if you see more than trivial
+    request/response mapping.
+
+- id: no_direct_db_in_components
+  name: "React components must not access the database directly"
+  severity: error
+  glob: "src/components/**/*.tsx"
+  prompt: |
+    Check if this React component imports or calls database clients
+    directly (e.g. prisma, drizzle, knex, mongoose, sql, pool.query).
+    Data fetching should happen in server actions, API routes, or
+    dedicated data-access layers — never inside component code.
+
+- id: single_responsibility_service
+  name: "Services should have a single domain"
+  severity: warning
+  glob: "src/services/**/*.ts"
+  prompt: |
+    Check if this service file mixes multiple unrelated domains.
+    A UserService should not contain order logic. A PaymentService
+    should not send emails directly. If the file handles more than
+    one clear domain, flag it.
+```
+
+### Security
+
+```yaml
+- id: error_messages_no_internals
+  name: "User-facing errors must not leak internals"
+  severity: error
+  glob: "src/**/*.ts"
+  exclude: "src/**/*.test.ts"
+  prompt: |
+    Check if error messages returned to the client expose internal
+    details like stack traces, database table names, internal file paths,
+    SQL queries, or third-party service URLs. User-facing error responses
+    should contain generic messages. Internal details should only be logged
+    server-side.
+
+- id: no_secrets_in_code
+  name: "No hardcoded secrets or credentials"
+  severity: error
+  glob: "src/**/*.{ts,tsx}"
+  prompt: |
+    Check if this file contains hardcoded secrets, API keys, passwords,
+    tokens, or connection strings. Look for patterns like long random
+    strings assigned to variables named key, secret, token, password,
+    or authorization headers with Bearer tokens. Environment variables
+    via process.env are fine.
+```
+
+### Code Quality
+
+```yaml
+- id: no_god_functions
+  name: "Functions should not exceed reasonable complexity"
+  severity: warning
+  glob: "src/**/*.ts"
+  exclude: "src/**/*.test.ts"
+  prompt: |
+    Check if any function in this file is excessively complex.
+    Signs: more than 4 levels of nesting, more than 5 early returns,
+    mixing multiple concerns in one function body, or functions longer
+    than ~60 lines. Suggest splitting if found.
+
+- id: meaningful_variable_names
+  name: "No cryptic abbreviations in domain code"
+  severity: warning
+  glob: "src/**/*.ts"
+  exclude: "src/**/*.test.ts"
+  prompt: |
+    Check if this file uses cryptic variable or function names like
+    mgr, proc, tmp, val, cb, fn, res (outside of route handlers),
+    or single-letter names outside of short lambdas and loop indices.
+    Domain code should use descriptive names.
+
+- id: no_raw_sql_strings
+  name: "Use query builder or parameterized queries"
+  severity: error
+  glob: "src/**/*.ts"
+  prompt: |
+    Check if this file constructs SQL queries by concatenating or
+    interpolating strings. All database queries should use parameterized
+    queries or a query builder (e.g. Prisma, Drizzle, Knex). Template
+    literals with ${} inside SQL strings are a red flag.
+```
+
+### Testing
+
+```yaml
+- id: test_describes_behavior
+  name: "Test names should describe behavior, not implementation"
+  severity: warning
+  glob: "src/**/*.test.ts"
+  prompt: |
+    Check if the test descriptions (describe/it/test strings) describe
+    user-visible behavior or outcomes rather than implementation details.
+    Bad: "should call handleSubmit", "should set state to loading".
+    Good: "should show error message when email is invalid",
+    "should redirect to dashboard after login".
+
+- id: no_test_interdependence
+  name: "Tests must not depend on execution order"
+  severity: error
+  glob: "src/**/*.test.ts"
+  prompt: |
+    Check if tests in this file share mutable state across test cases
+    without proper setup/teardown. Look for: module-level let variables
+    mutated inside tests, missing beforeEach resets, or tests that only
+    pass when run after another specific test. Each test should be
+    independently runnable.
+```
 
 ## How It Works
 
