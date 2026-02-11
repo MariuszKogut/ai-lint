@@ -5,7 +5,7 @@ import readline from 'node:readline/promises'
 import { Command } from 'commander'
 import dotenv from 'dotenv'
 import YAML from 'yaml'
-import { AnthropicClient } from './anthropic-client'
+import { AIClient } from './ai-client'
 import { CacheManager } from './cache-manager'
 import { ConfigLoader } from './config-loader'
 import { FileResolver } from './file-resolver'
@@ -94,7 +94,7 @@ program
       }
 
       // 5. Create dependencies
-      const client = new AnthropicClient(config.model)
+      const client = new AIClient(config.model)
       const matcher = new RuleMatcher(config.rules)
       const reporter = new Reporter()
 

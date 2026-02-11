@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AnthropicClient } from './anthropic-client.js'
+import { AIClient } from './ai-client.js'
 import { CacheManager } from './cache-manager.js'
 import { ConfigLoader } from './config-loader.js'
 import { LinterEngine } from './linter-engine.js'
@@ -94,7 +94,7 @@ ${fullConfig.rules
   async function runLinter(files: string[]) {
     const config = new ConfigLoader().load(join(tempDir, '.ai-lint.yml'))
     const cache = new CacheManager(join(tempDir, '.ai-lint'))
-    const client = new AnthropicClient(config.model)
+    const client = new AIClient(config.model)
     const matcher = new RuleMatcher(config.rules)
     const reporter = new Reporter()
     const engine = new LinterEngine({ cache, client, matcher, reporter })

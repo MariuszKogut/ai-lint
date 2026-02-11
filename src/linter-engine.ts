@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import pLimit from 'p-limit'
-import type { AnthropicClient } from './anthropic-client.js'
+import type { AIClient } from './ai-client.js'
 import { CacheManager } from './cache-manager.js'
 import type { RuleMatcher } from './rule-matcher.js'
 import type { LinterConfig, LintJob, LintResult, LintSummary } from './types.js'
@@ -18,7 +18,7 @@ export type ProgressCallback = (
 
 interface LinterEngineDeps {
   cache: CacheManager
-  client: AnthropicClient
+  client: AIClient
   matcher: RuleMatcher
   reporter: Reporter
   onProgress?: ProgressCallback

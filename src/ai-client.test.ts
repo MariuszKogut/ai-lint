@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { AnthropicClient } from './anthropic-client.js'
+import { AIClient } from './ai-client.js'
 import type { LintJob } from './types.js'
 
 // Mock the AI SDK
@@ -15,8 +15,8 @@ vi.mock('@openrouter/ai-sdk-provider', () => ({
   createOpenRouter: vi.fn(() => vi.fn((modelId: string) => ({ modelId }))),
 }))
 
-describe('AnthropicClient', () => {
-  let client: AnthropicClient
+describe('AIClient', () => {
+  let client: AIClient
 
   const createMockJob = (overrides?: Partial<LintJob>): LintJob => ({
     rule: {
@@ -36,7 +36,7 @@ describe('AnthropicClient', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    client = new AnthropicClient('haiku')
+    client = new AIClient('haiku')
   })
 
   it('should return correct LintResult on valid JSON response', async () => {
@@ -211,7 +211,7 @@ describe('AnthropicClient', () => {
   })
 
   it('should use correct model mapping for sonnet', async () => {
-    client = new AnthropicClient('sonnet')
+    client = new AIClient('sonnet')
     mockGenerateText.mockResolvedValue({
       output: { pass: true, message: 'OK', line: null },
     })

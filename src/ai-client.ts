@@ -28,7 +28,7 @@ const lintResponseSchema = z.object({
   line: z.number().nullable(),
 })
 
-export class AnthropicClient {
+export class AIClient {
   constructor(private defaultModel: Model) {}
 
   async lint(job: LintJob): Promise<LintResult> {

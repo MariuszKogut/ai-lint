@@ -26,7 +26,7 @@ src/
   config-loader.ts      # YAML loading + JSON Schema validation
   file-resolver.ts      # File glob resolution (--all, --changed, explicit)
   rule-matcher.ts       # Match files to applicable rules
-  anthropic-client.ts   # Anthropic API calls with retry
+  ai-client.ts          # OpenRouter API calls with retry
   linter-engine.ts      # Orchestration: files x rules -> results
   cache-manager.ts      # Content-hash based result caching
   reporter.ts           # Console output formatting

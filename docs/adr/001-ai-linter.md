@@ -20,7 +20,7 @@
 | AL-009 | Severity-Levels: error (Exit-Code 1) und warning (Exit-Code 0) | Must Have | ⬜ |
 | AL-010 | Styled Terminal-Output (Datei, Severity, Regel, Beschreibung) | Must Have | ⬜ |
 | AL-011 | Parallele API-Calls mit konfigurierbarem Concurrency-Limit | Must Have | ⬜ |
-| AL-012 | Anthropic API als Backend (direkt, kein CLI) | Must Have | ⬜ |
+| AL-012 | AI API als Backend (direkt, kein CLI) | Must Have | ⬜ |
 | AL-013 | Config-Validierung per JSON Schema | Should Have | ⬜ |
 | AL-014 | Exclude-Pattern pro Regel (z.B. Test-Dateien ausschliessen) | Should Have | ⬜ |
 | AL-015 | Model-Override pro Regel (z.B. Haiku fuer einfache, Sonnet fuer komplexe Regeln) | Should Have | ⬜ |
@@ -33,13 +33,13 @@
 | # | Frage | Entscheidung |
 | --- | --- | --- |
 | 1 | Regel-Format? | **YAML-Datei** — `.ai-lint.yml` im Projekt-Root. Passt zum bestehenden YAML-Stack. |
-| 2 | AI-Backend? | **Nur API (kein CLI)** — Anthropic SDK direkt. Schneller, mehr Kontrolle, keine CLI-Dependency. |
+| 2 | AI-Backend? | **Nur API (kein CLI)** — AI SDK direkt. Schneller, mehr Kontrolle, keine CLI-Dependency. |
 | 3 | Cache-Strategie? | **Content-Hash (SHA-256)** — SHA-256 des Dateiinhalts + Regel-Prompt-Hash. Absolut zuverlaessig. |
 | 4 | Auto-Fix? | **Nein, nur Report** — Linter meldet Probleme mit Beschreibung und Severity. Kein Code-Eingriff. |
 | 5 | Regel-Scope? | **Datei + Glob-Pattern** — Regeln matchen per Glob auf Dateien. Kein Cross-File-Kontext. |
 | 6 | Output-Format? | **Styled Terminal** — Farbige Ausgabe mit chalk. Kein JSON/HTML/SARIF in v1. |
 | 7 | Severity? | **error + warning** — Errors setzen Exit-Code 1, Warnings nur informativ (Exit-Code 0). |
-| 8 | API Provider? | **Anthropic API (Claude)** — `@anthropic-ai/sdk`. Haiku fuer Speed, Sonnet fuer Qualitaet. |
+| 8 | API Provider? | **AI API (Claude)** — `@anthropic-ai/sdk`. Haiku fuer Speed, Sonnet fuer Qualitaet. |
 | 9 | Git-Modus? | **Diff gegen Branch** — `git diff --name-only <base>...HEAD`. Default-Base aus Config, ueberschreibbar per `--base`. |
 | 10 | Parallelitaet? | **Ja, mit Concurrency-Limit** — `p-limit` mit konfigurierbarem Limit (Default: 5). |
 | 11 | Cache-Ort? | **`.ai-lint/` im Projekt** — Pro-Projekt isoliert, in `.gitignore`. |
@@ -148,7 +148,7 @@ src/
   file-resolver.ts        # Git-Diff + Glob → finale Dateiliste
   cache-manager.ts        # SHA-256 Hash Cache (.ai-lint/cache.json)
   linter-engine.ts        # Orchestrierung: Match → Filter → Lint → Report
-  anthropic-client.ts     # Anthropic SDK Wrapper (Lint-Prompt bauen + senden)
+  ai-client.ts     # AI SDK Wrapper (Lint-Prompt bauen + senden)
   reporter.ts             # Styled Terminal-Output (chalk)
   types.ts                # Alle TypeScript Interfaces
   schema.json             # JSON Schema fuer .ai-lint.yml
@@ -158,7 +158,7 @@ src/
   file-resolver.test.ts   # Git-Diff + Datei-Aufloesung
   cache-manager.test.ts   # Cache read/write/invalidate
   linter-engine.test.ts   # Orchestrierung + Parallelitaet
-  anthropic-client.test.ts # API-Call Mocking
+  ai-client.test.ts # API-Call Mocking
   reporter.test.ts        # Output-Formatierung
   e2e.test.ts             # Full Workflow mit gemocktem API
 
@@ -195,7 +195,7 @@ __test-data__/            # YAML Fixtures + Fake-Quellcode-Dateien
               +----------+----------+
               |          |          |  p-limit(concurrency)
          +----v--+ +----v--+ +----v--+
-         |Anthropic|Anthropic|Anthropic|
+         |AI|AI|AI|
          | Client | Client  | Client  |
          +----+--+ +----+--+ +----+--+
               |          |          |
@@ -223,7 +223,7 @@ __test-data__/            # YAML Fixtures + Fake-Quellcode-Dateien
 | `FileResolver` | `file-resolver.ts` | Dateiliste bestimmen: explizit, `--all` (Glob), `--changed` (Git Diff) |
 | `CacheManager` | `cache-manager.ts` | Cache lesen/schreiben, SHA-256 berechnen, Cache-Key = `rule_id:file_hash:prompt_hash` |
 | `LinterEngine` | `linter-engine.ts` | Jobs erstellen, Cache filtern, parallel ausfuehren, Ergebnisse sammeln |
-| `AnthropicClient` | `anthropic-client.ts` | Prompt bauen, Anthropic API aufrufen, Response parsen (JSON aus AI-Antwort) |
+| `AIClient` | `ai-client.ts` | Prompt bauen, AI API aufrufen, Response parsen (JSON aus AI-Antwort) |
 | `Reporter` | `reporter.ts` | Terminal-Ausgabe: Farben, Gruppierung nach Datei, Summary-Zeile |
 | — | `cli.ts` | Commander Setup, instanziiert Klassen und verdrahtet Dependencies |
 
@@ -233,7 +233,7 @@ __test-data__/            # YAML Fixtures + Fake-Quellcode-Dateien
 // cli.ts — Verdrahtung
 const config = new ConfigLoader().load('.ai-lint.yml')
 const cache = new CacheManager('.ai-lint')
-const client = new AnthropicClient(config.model)
+const client = new AIClient(config.model)
 const matcher = new RuleMatcher(config.rules)
 const resolver = new FileResolver(config.git_base)
 const reporter = new Reporter()
@@ -328,7 +328,7 @@ interface LintSummary {
 
 ---
 
-## 7. Anthropic API Integration
+## 7. AI API Integration
 
 ### Prompt-Struktur
 
@@ -354,7 +354,7 @@ User:
 
 ### Model Mapping
 
-| Config-Wert | Anthropic Model ID |
+| Config-Wert | AI Model ID |
 | --- | --- |
 | `haiku` | `claude-haiku-4-5-20251001` |
 | `sonnet` | `claude-sonnet-4-5-20250929` |
@@ -455,7 +455,7 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 
 | Paket | Zweck |
 | --- | --- |
-| `@anthropic-ai/sdk` | Anthropic API Client |
+| `@anthropic-ai/sdk` | AI API Client |
 | `p-limit` | Concurrency-Limiting fuer parallele API-Calls |
 | `micromatch` | Glob-Pattern Matching (schnell, feature-rich) |
 
@@ -495,7 +495,7 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 | Inline-Annotations | Kein `// ai-lint-disable` in v1. |
 | MCP Integration | Kein MCP-Server in v1. |
 | Pre-Commit Hook | Doku reicht: `ai-lint lint --changed` manuell in Hook einbinden. |
-| Multi-Provider | Nur Anthropic. Kein OpenAI, kein Ollama in v1. |
+| Multi-Provider | Nur AI. Kein OpenAI, kein Ollama in v1. |
 | Watch Mode | Kein File-Watcher. Manuell oder per CI ausfuehren. |
 
 ---
@@ -520,9 +520,9 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 | 12 | Cache Miss: geaenderter Prompt → kein Cache Hit | `cache-manager` |
 | 13 | Cache Clear loescht cache.json | `cache-manager` |
 | 14 | Cache Status zeigt Anzahl Eintraege + Groesse | `cache-manager` |
-| 15 | Anthropic API-Call: happy path → LintResult | `anthropic-client` |
-| 16 | Anthropic API-Call: ungueltige JSON-Antwort → pass=false | `anthropic-client` |
-| 17 | Anthropic API-Call: Rate Limit → Retry | `anthropic-client` |
+| 15 | AI API-Call: happy path → LintResult | `ai-client` |
+| 16 | AI API-Call: ungueltige JSON-Antwort → pass=false | `ai-client` |
+| 17 | AI API-Call: Rate Limit → Retry | `ai-client` |
 | 18 | Linter Engine: Jobs erstellen aus Rules × Files | `linter-engine` |
 | 19 | Linter Engine: cached Jobs ueberspringen | `linter-engine` |
 | 20 | Linter Engine: Concurrency-Limit einhalten | `linter-engine` |
@@ -579,10 +579,10 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 - ⬜ `npx biome check` bestanden
 - ⬜ `npx vitest run` bestanden
 
-### Phase 3: Anthropic Client + Linter Engine
+### Phase 3: AI Client + Linter Engine
 
-- ⬜ **3.1** `anthropic-client.ts` implementieren (Prompt bauen, API-Call, JSON-Response parsen, Retry-Logik)
-- ⬜ **3.2** `anthropic-client.test.ts` (API gemockt)
+- ⬜ **3.1** `ai-client.ts` implementieren (Prompt bauen, API-Call, JSON-Response parsen, Retry-Logik)
+- ⬜ **3.2** `ai-client.test.ts` (API gemockt)
 - ⬜ **3.3** `linter-engine.ts` implementieren (Jobs erstellen, Cache filtern, p-limit parallel ausfuehren)
 - ⬜ **3.4** `linter-engine.test.ts`
 
@@ -605,7 +605,7 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 
 - ⬜ **5.1** README.md aktualisieren
 - ⬜ **5.2** `tsup.config.ts` anpassen (Entry Point, Shebang)
-- ⬜ **5.3** System-Test mit echter Anthropic API (optional, teuer)
+- ⬜ **5.3** System-Test mit echter AI API (optional, teuer)
 - ⬜ **5.4** `.ai-lint.yml` Beispiel-Config im Repo
 
 **Quality Gate Phase 5:**

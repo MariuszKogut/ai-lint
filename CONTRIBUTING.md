@@ -49,7 +49,7 @@ src/
   config-loader.ts      # YAML loading + JSON Schema validation
   file-resolver.ts      # File glob resolution (--all, --changed, explicit)
   rule-matcher.ts       # Match files to applicable rules
-  anthropic-client.ts   # OpenRouter API calls with retry
+  ai-client.ts   # OpenRouter API calls with retry
   linter-engine.ts      # Orchestration: files x rules -> results
   cache-manager.ts      # Content-hash based result caching
   reporter.ts           # Console output formatting
@@ -62,7 +62,7 @@ src/
 
 To add a new model, update:
 1. `src/types.ts` — add to the `Model` type
-2. `src/anthropic-client.ts` — add OpenRouter model ID to `MODEL_MAP`
+2. `src/ai-client.ts` — add OpenRouter model ID to `MODEL_MAP`
 3. `src/schema.json` — add to both `model` enum arrays
 4. `README.md` — update the model table
 
