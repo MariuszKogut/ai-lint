@@ -40,6 +40,7 @@ export interface LintResult {
   line?: number // optional line reference
   duration_ms: number
   cached: boolean // true if from cache
+  api_error?: boolean // true if result is due to API failure, not actual lint
 }
 
 // --- Cache Types ---

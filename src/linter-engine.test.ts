@@ -312,6 +312,26 @@ describe('LinterEngine', () => {
     expect(mockCache.save).toHaveBeenCalledTimes(1)
   })
 
+  it('exit code 1 when API errors on warning rules', async () => {
+    vi.mocked(mockMatcher.matchFile).mockReturnValue([rule2]) // warning severity
+
+    vi.mocked(mockClient.lint).mockResolvedValue({
+      rule_id: 'max_length',
+      rule_name: 'Max 300 lines',
+      file: 'src/file1.ts',
+      severity: 'warning',
+      pass: false,
+      message: 'API error: 500 Internal server error',
+      duration_ms: 100,
+      cached: false,
+      api_error: true,
+    })
+
+    const result = await engine.run(['src/file1.ts'], config)
+
+    expect(result.exitCode).toBe(1)
+  })
+
   it('files with no matching rules are skipped entirely', async () => {
     // No rules match any files
     vi.mocked(mockMatcher.matchFile).mockReturnValue([])

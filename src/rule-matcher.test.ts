@@ -140,6 +140,39 @@ describe('RuleMatcher', () => {
       expect(matcher.matchFile('src/lib/util.spec.ts')).toHaveLength(0)
       expect(matcher.matchFile('src/deep/nested/file.spec.ts')).toHaveLength(0)
     })
+
+    it('matches files with Windows-style backslash paths', () => {
+      const rules: LintRule[] = [
+        {
+          id: 'test_rule',
+          name: 'Test Rule',
+          severity: 'error',
+          glob: 'src/**/*.ts',
+          prompt: 'Test prompt',
+        },
+      ]
+      const matcher = new RuleMatcher(rules)
+
+      expect(matcher.matchFile('src\\routes\\user.ts')).toHaveLength(1)
+      expect(matcher.matchFile('src\\deep\\nested\\file.ts')).toHaveLength(1)
+    })
+
+    it('applies exclude patterns with Windows-style paths', () => {
+      const rules: LintRule[] = [
+        {
+          id: 'no_tests',
+          name: 'No Tests',
+          severity: 'error',
+          glob: 'src/**/*.ts',
+          exclude: 'src/**/*.test.ts',
+          prompt: 'Test prompt',
+        },
+      ]
+      const matcher = new RuleMatcher(rules)
+
+      expect(matcher.matchFile('src\\lib\\util.ts')).toHaveLength(1)
+      expect(matcher.matchFile('src\\lib\\util.test.ts')).toHaveLength(0)
+    })
   })
 
   describe('matchFiles', () => {

@@ -106,7 +106,8 @@ describe('AnthropicClient', () => {
     const result = await client.lint(job)
 
     expect(result.pass).toBe(false)
-    expect(result.message).toBe('AI response was not valid JSON')
+    expect(result.message).toContain('AI response was not valid JSON')
+    expect(result.api_error).toBe(true)
   })
 
   it('should retry on rate limit (429) and succeed on 2nd attempt', async () => {
@@ -153,6 +154,7 @@ describe('AnthropicClient', () => {
 
     expect(result.pass).toBe(false)
     expect(result.message).toContain('Rate limited')
+    expect(result.api_error).toBe(true)
     expect(mockGenerateText).toHaveBeenCalledTimes(3)
   })
 
