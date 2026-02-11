@@ -1,5 +1,5 @@
 {
-  "name": "ai-lint",
+  "name": "@handmade-systems/ai-lint",
   "version": "0.1.0",
   "description": "AI-powered code linter with custom YAML rules — control AI with AI",
   "type": "module",

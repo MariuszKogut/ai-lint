@@ -13,7 +13,7 @@ The rules are especially powerful when generated with tools like [Claude Code](h
 ## 📦 Installation
 
 ```bash
-npm i -g ai-lint
+npm i -g @handmade-systems/ai-lint
 ```
 
 Or clone and build locally:
