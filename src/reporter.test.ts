@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SpyInstance } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Reporter } from './reporter.js'
 import type { LintResult, LintSummary } from './types.js'
 
@@ -16,7 +16,7 @@ describe('Reporter', () => {
     consoleLogSpy.mockRestore()
   })
 
-  it('reports errors with red severity label', () => {
+  it('reports errors with red severity label and arrow prefix', () => {
     const results: LintResult[] = [
       {
         rule_id: 'no_console_log',
@@ -46,6 +46,7 @@ describe('Reporter', () => {
     expect(output).toContain('error')
     expect(output).toContain('no_console_log')
     expect(output).toContain('Contains console.log statement')
+    expect(output).toContain('⎿')
   })
 
   it('reports warnings with yellow severity label', () => {
@@ -161,6 +162,7 @@ describe('Reporter', () => {
     const output = consoleLogSpy.mock.calls.map((call) => call[0]).join('\n')
     expect(output).toContain('All rules passed')
     expect(output).toContain('1 file checked')
+    expect(output).toContain('⎿')
   })
 
   it('summary line has correct counts', () => {

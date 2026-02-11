@@ -4,29 +4,41 @@ import type { LintResult, LintSummary } from './types.js'
 export class Reporter {
   report(results: LintResult[], summary: LintSummary): void {
     if (results.length === 0 || (summary.errors === 0 && summary.warnings === 0)) {
-      console.log(chalk.green('All rules passed'))
-      console.log(this.formatSummary(summary))
+      console.log(chalk.green('  All rules passed'))
+      console.log(`  ⎿ ${this.formatSummary(summary)}`)
       return
     }
 
     // Group results by file
     const byFile = this.groupByFile(results)
+    const fileEntries = Object.entries(byFile)
 
     // Output violations grouped by file
-    for (const [file, fileResults] of Object.entries(byFile)) {
+    const cols = process.stdout.columns || 80
+    const msgIndent = '    '
+    const msgWidth = cols - msgIndent.length
+
+    for (let i = 0; i < fileEntries.length; i++) {
+      const [file, fileResults] = fileEntries[i]
       console.log(chalk.white.bold(`  ${file}`))
       for (const result of fileResults) {
         const severityLabel =
-          result.severity === 'error' ? chalk.red('error') : chalk.yellow('warn')
+          result.severity === 'error' ? chalk.red('error') : chalk.yellow('warn ')
         const ruleId = chalk.dim(result.rule_id)
-        const message = result.message
-        console.log(`    ${severityLabel}  ${ruleId}  ${message}`)
+        console.log(`  ⎿ ${severityLabel}  ${ruleId}`)
+        const wrapped = this.wordWrap(result.message, msgWidth)
+        for (const line of wrapped) {
+          console.log(`${msgIndent}${line}`)
+        }
+      }
+      if (i < fileEntries.length - 1) {
+        console.log()
       }
     }
 
     console.log()
     console.log(this.formatProblemsLine(results, summary))
-    console.log(this.formatSummary(summary))
+    console.log(`  ⎿ ${this.formatSummary(summary)}`)
   }
 
   private groupByFile(results: LintResult[]): Record<string, LintResult[]> {
@@ -61,12 +73,34 @@ export class Reporter {
     return `  ${total} ${total === 1 ? 'problem' : 'problems'} (${problemsDesc}) in ${fileCount} ${fileCount === 1 ? 'file' : 'files'}`
   }
 
+  private wordWrap(text: string, width: number): string[] {
+    if (width <= 0 || text.length <= width) return [text]
+
+    const lines: string[] = []
+    const words = text.split(' ')
+    let current = ''
+
+    for (const word of words) {
+      if (current.length === 0) {
+        current = word
+      } else if (current.length + 1 + word.length <= width) {
+        current += ` ${word}`
+      } else {
+        lines.push(current)
+        current = word
+      }
+    }
+    if (current.length > 0) lines.push(current)
+
+    return lines
+  }
+
   private formatSummary(summary: LintSummary): string {
     const files = chalk.dim(
       `${summary.total_files} ${summary.total_files === 1 ? 'file' : 'files'} checked`,
     )
     const cached = chalk.dim(`${summary.cached} cached`)
     const duration = chalk.dim(`${(summary.duration_ms / 1000).toFixed(1)}s`)
-    return `  ${files}, ${cached}, ${duration}`
+    return `${files}, ${cached}, ${duration}`
   }
 }
