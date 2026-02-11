@@ -8,6 +8,8 @@ import fg from 'fast-glob'
  * - Explicit file paths provided by the user
  * - Changed files from git diff
  * - All files matching glob patterns
+ *
+ * All resolved files are filtered against .gitignore rules.
  */
 export class FileResolver {
   constructor(
@@ -18,6 +20,7 @@ export class FileResolver {
   /**
    * Validates that explicit file paths exist.
    * Returns absolute paths for existing files, warns for missing ones.
+   * Filters out files matching .gitignore rules.
    */
   resolveExplicit(filePaths: string[]): string[] {
     const resolvedPaths: string[] = []
@@ -35,7 +38,7 @@ export class FileResolver {
       }
     }
 
-    return resolvedPaths
+    return this.filterGitIgnored(resolvedPaths)
   }
 
   /**
@@ -91,13 +94,44 @@ export class FileResolver {
         unique: true, // Automatically deduplicate results
       })
 
-      // Return relative paths
-      return files.map((filePath) => path.relative(this.cwd, path.resolve(this.cwd, filePath)))
+      // Return relative paths, filtered against .gitignore
+      const relativePaths = files.map((filePath) =>
+        path.relative(this.cwd, path.resolve(this.cwd, filePath)),
+      )
+      return this.filterGitIgnored(relativePaths)
     } catch (error) {
       if (error instanceof Error) {
         throw new Error(`Failed to resolve glob patterns: ${error.message}`)
       }
       throw error
+    }
+  }
+
+  /**
+   * Filters out files that match .gitignore rules using git check-ignore.
+   * Respects all .gitignore levels (global, repo, nested).
+   */
+  private filterGitIgnored(filePaths: string[]): string[] {
+    if (filePaths.length === 0) return []
+
+    try {
+      const result = execSync('git check-ignore --stdin', {
+        cwd: this.cwd,
+        encoding: 'utf-8',
+        input: filePaths.join('\n'),
+      })
+
+      const ignoredFiles = new Set(
+        result
+          .trim()
+          .split('\n')
+          .filter((line) => line.length > 0),
+      )
+
+      return filePaths.filter((filePath) => !ignoredFiles.has(filePath))
+    } catch {
+      // Exit code 1 means no files are ignored — return all files unchanged
+      return filePaths
     }
   }
 }
