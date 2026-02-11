@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import Ajv from 'ajv'
 import addFormats from 'ajv-formats'
 import YAML from 'yaml'
-import schema from './schema.json' assert { type: 'json' }
+import schema from './schema.json' with { type: 'json' }
 import type { LinterConfig } from './types.js'
 
 export class ConfigLoader {
@@ -42,7 +42,7 @@ export class ConfigLoader {
 
     // Apply defaults
     const config: LinterConfig = {
-      model: rawConfig.model ?? 'haiku',
+      model: rawConfig.model ?? 'gemini-flash',
       concurrency: rawConfig.concurrency ?? 5,
       git_base: rawConfig.git_base ?? 'main',
       rules: rawConfig.rules,

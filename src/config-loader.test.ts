@@ -52,7 +52,7 @@ rules:
     try {
       const config = loader.load(tmpPath)
 
-      expect(config.model).toBe('haiku')
+      expect(config.model).toBe('gemini-flash')
       expect(config.concurrency).toBe(5)
       expect(config.git_base).toBe('main')
     } finally {
@@ -207,7 +207,7 @@ rules:
     try {
       const config = loader.load(tmpPath)
 
-      expect(config.model).toBe('haiku') // default
+      expect(config.model).toBe('gemini-flash') // default
       expect(config.rules[0].model).toBe('haiku')
       expect(config.rules[1].model).toBe('sonnet')
     } finally {

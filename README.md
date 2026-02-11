@@ -1,6 +1,6 @@
 # ai-linter
 
-AI-powered code linter with custom YAML rules. Define your own lint rules as natural-language prompts, and let Claude analyze your code against them.
+AI-powered code linter with custom YAML rules. Define your own lint rules as natural-language prompts, and let AI models analyze your code against them. Uses [OpenRouter](https://openrouter.ai/) to access Gemini, Claude, GPT and other models.
 
 ## Installation
 
@@ -12,10 +12,20 @@ npm link  # makes 'ai-linter' globally available
 
 ## Setup
 
-Set your Anthropic API key:
+ai-linter uses [OpenRouter](https://openrouter.ai/) as API gateway. This gives you access to multiple models (Gemini, Claude, GPT, etc.) with einem einzigen API key.
+
+1. Create an account at [openrouter.ai](https://openrouter.ai/)
+2. Generate an API key under [Keys](https://openrouter.ai/keys)
+3. Set the key as environment variable:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export OPEN_ROUTER_KEY=sk-or-v1-...
+```
+
+Or create a `.env` file in your project root:
+
+```
+OPEN_ROUTER_KEY=sk-or-v1-...
 ```
 
 ## Quick Start
@@ -23,7 +33,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 1. Create a `.ai-linter.yml` in your project root:
 
 ```yaml
-model: haiku
+model: gemini-flash    # default, cheapest option
 concurrency: 5
 git_base: main
 
@@ -116,7 +126,7 @@ This checks:
 - Unique rule IDs
 - Required fields (`id`, `name`, `severity`, `glob`, `prompt`)
 - Valid severity values (`error`, `warning`)
-- Valid model values (`haiku`, `sonnet`, `opus`)
+- Valid model values (`gemini-flash`, `haiku`, `sonnet`, `opus`)
 - Rule ID format (snake_case: `^[a-z][a-z0-9_]*$`)
 
 Example output:
@@ -124,7 +134,7 @@ Example output:
 ```
 $ ai-linter validate
 Configuration is valid
-  Model: haiku
+  Model: gemini-flash
   Concurrency: 5
   Git base: main
   Rules: 3 (no_logic_in_routes, no_direct_db_in_components, error_messages_no_internals)
@@ -154,7 +164,7 @@ The config file (`.ai-linter.yml`) is validated against a JSON schema (`src/sche
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `model` | `"haiku"` \| `"sonnet"` \| `"opus"` | `"haiku"` | Default Claude model for all rules |
+| `model` | `"gemini-flash"` \| `"haiku"` \| `"sonnet"` \| `"opus"` | `"gemini-flash"` | Default AI model for all rules |
 | `concurrency` | `number` (1–20) | `5` | Max parallel API calls |
 | `git_base` | `string` | `"main"` | Base branch for `--changed` mode |
 | `rules` | `array` | *(required)* | List of lint rules |
@@ -169,7 +179,7 @@ The config file (`.ai-linter.yml`) is validated against a JSON schema (`src/sche
 | `glob` | `string` | yes | Glob pattern for file matching |
 | `exclude` | `string` | no | Glob pattern to exclude files |
 | `prompt` | `string` | yes | Natural-language lint instruction |
-| `model` | `"haiku"` \| `"sonnet"` \| `"opus"` | no | Override the default model |
+| `model` | `"gemini-flash"` \| `"haiku"` \| `"sonnet"` \| `"opus"` | no | Override the default model |
 
 ## Example Rules
 
@@ -306,7 +316,7 @@ These rules show the kind of architectural and semantic checks that traditional 
 2. **File resolution** — resolves files via `--all` (glob), `--changed` (git diff), or explicit paths
 3. **Rule matching** — for each file, finds all rules whose `glob` matches and `exclude` doesn't
 4. **Caching** — checks if (file content hash + rule prompt hash) is already cached; skips API calls for cached results
-5. **AI linting** — sends each (file, rule) pair to the Anthropic API; Claude responds with `{ pass, message, line }`
+5. **AI linting** — sends each (file, rule) pair via OpenRouter to the configured AI model, which responds with `{ pass, message, line }`
 6. **Reporting** — groups violations by file and prints them to the console
 
 ## Caching

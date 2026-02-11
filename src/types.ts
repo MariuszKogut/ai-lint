@@ -1,6 +1,6 @@
 // --- Config Types ---
 
-export type Model = 'haiku' | 'sonnet' | 'opus'
+export type Model = 'gemini-flash' | 'haiku' | 'sonnet' | 'opus'
 export type Severity = 'error' | 'warning'
 
 export interface LinterConfig {

@@ -7,7 +7,7 @@
   "properties": {
     "model": {
       "type": "string",
-      "enum": ["haiku", "sonnet", "opus"],
+      "enum": ["gemini-flash", "haiku", "sonnet", "opus"],
       "description": "Default AI model to use for linting"
     },
     "concurrency": {
@@ -66,7 +66,7 @@
         },
         "model": {
           "type": "string",
-          "enum": ["haiku", "sonnet", "opus"],
+          "enum": ["gemini-flash", "haiku", "sonnet", "opus"],
           "description": "Override default model for this rule"
         }
       },
