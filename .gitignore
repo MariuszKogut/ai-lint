@@ -4,3 +4,5 @@ dist/
 *.tgz
 .idea/
 .ai-linter/
+coverage/
+junit.xml
