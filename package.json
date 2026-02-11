@@ -15,22 +15,24 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Handmade-Systems/tool-ai-linter.git"
+    "url": "https://github.com/MariuszKogut/tool-ai-linter.git"
   },
   "keywords": [
     "linter",
     "ai",
+    "llm",
+    "openrouter",
+    "gemini",
     "claude",
-    "anthropic",
     "code-quality",
     "cli",
     "lint"
   ],
-  "author": "Handmade Systems",
+  "author": "Mariusz Kogut",
   "license": "MIT",
-  "homepage": "https://github.com/Handmade-Systems/tool-ai-linter#readme",
+  "homepage": "https://github.com/MariuszKogut/tool-ai-linter#readme",
   "bugs": {
-    "url": "https://github.com/Handmade-Systems/tool-ai-linter/issues"
+    "url": "https://github.com/MariuszKogut/tool-ai-linter/issues"
   },
   "scripts": {
     "build": "tsup",

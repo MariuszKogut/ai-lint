@@ -14,7 +14,7 @@ The rules are especially powerful when generated with tools like [Claude Code](h
 
 ```bash
 # Clone and install
-git clone https://github.com/Handmade-Systems/tool-ai-linter.git
+git clone https://github.com/MariuszKogut/tool-ai-linter.git
 cd tool-ai-linter
 npm install
 npm run build
