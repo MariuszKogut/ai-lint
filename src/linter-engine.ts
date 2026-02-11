@@ -9,7 +9,12 @@ export interface Reporter {
   report(results: LintResult[], summary: LintSummary): void
 }
 
-export type ProgressCallback = (completed: number, total: number, job: LintJob, cached: boolean) => void
+export type ProgressCallback = (
+  completed: number,
+  total: number,
+  job: LintJob,
+  cached: boolean,
+) => void
 
 interface LinterEngineDeps {
   cache: CacheManager
