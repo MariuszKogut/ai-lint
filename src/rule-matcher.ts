@@ -21,16 +21,19 @@ export class RuleMatcher {
    * @returns Array of matching lint rules
    */
   matchFile(filePath: string): LintRule[] {
+    // Normalize backslashes to forward slashes for Windows compatibility
+    const normalizedPath = filePath.replace(/\\/g, '/')
+
     return this.rules.filter((rule) => {
       // Check if file matches the glob pattern
-      const matchesGlob = micromatch.isMatch(filePath, rule.glob)
+      const matchesGlob = micromatch.isMatch(normalizedPath, rule.glob)
       if (!matchesGlob) {
         return false
       }
 
       // If there's an exclude pattern, check if file matches it
       if (rule.exclude) {
-        const matchesExclude = micromatch.isMatch(filePath, rule.exclude)
+        const matchesExclude = micromatch.isMatch(normalizedPath, rule.exclude)
         if (matchesExclude) {
           return false
         }

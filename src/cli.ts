@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from 'node:fs'
+import { createRequire } from 'node:module'
 import readline from 'node:readline/promises'
 import { Command } from 'commander'
 import dotenv from 'dotenv'
@@ -15,10 +16,13 @@ import { RuleMatcher } from './rule-matcher'
 
 dotenv.config({ quiet: true })
 
-const DEFAULT_CONFIG_CONTENT = `# ai-linter configuration
-# See: https://github.com/example/ai-linter
+const require = createRequire(import.meta.url)
+const { version: PKG_VERSION } = require('../package.json')
 
-# model: sonnet          # Default AI model (haiku | sonnet | opus)
+const DEFAULT_CONFIG_CONTENT = `# ai-lint configuration
+# See: https://github.com/MariuszKogut/ai-lint
+
+# model: gemini-flash    # Default AI model (gemini-flash | haiku | sonnet | opus)
 # concurrency: 5         # Max parallel API calls
 # git_base: main         # Base branch for --changed mode
 
@@ -36,9 +40,9 @@ rules: []
 const program = new Command()
 
 program
-  .name('ai-linter')
+  .name('ai-lint')
   .description('AI-powered code linter with custom YAML rules')
-  .version('1.0.0')
+  .version(PKG_VERSION)
 
 // --- lint command ---
 program
@@ -48,7 +52,7 @@ program
   .option('--all', 'Lint all files matching rule globs')
   .option('--changed', 'Lint only git-changed files')
   .option('--base <branch>', 'Override git_base (used with --changed)')
-  .option('--config <path>', 'Config file path', '.ai-linter.yml')
+  .option('--config <path>', 'Config file path', '.ai-lint.yml')
   .option('--verbose', 'Show detailed progress (API calls vs cache hits)')
   .action(async (files: string[], options) => {
     try {
@@ -63,7 +67,7 @@ program
       }
 
       // 3. Load cache
-      const cache = new CacheManager('.ai-linter')
+      const cache = new CacheManager('.ai-lint')
       cache.load()
 
       // 4. Resolve files based on mode
@@ -133,7 +137,7 @@ program
 program
   .command('validate')
   .description('Validate config file')
-  .option('--config <path>', 'Config file path', '.ai-linter.yml')
+  .option('--config <path>', 'Config file path', '.ai-lint.yml')
   .action((options) => {
     try {
       const loader = new ConfigLoader()
@@ -158,7 +162,7 @@ program
 program
   .command('generate-rule')
   .description('Interactively generate a new lint rule using AI')
-  .option('--config <path>', 'Config file path', '.ai-linter.yml')
+  .option('--config <path>', 'Config file path', '.ai-lint.yml')
   .action(async (options) => {
     try {
       // 1. Check for API key
@@ -167,14 +171,9 @@ program
         process.exit(2)
       }
 
-      // 2. Auto-init: create config file if it doesn't exist
       const configPath = options.config
-      if (!fs.existsSync(configPath)) {
-        fs.writeFileSync(configPath, DEFAULT_CONFIG_CONTENT, 'utf-8')
-        console.log(`Created ${configPath} with default configuration.`)
-      }
 
-      // 3. Interactive prompt for rule description
+      // 2. Interactive prompt for rule description
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
       const description = await rl.question('Describe what the rule should check:\n> ')
 
@@ -184,16 +183,16 @@ program
         process.exit(2)
       }
 
-      // 4. Generate rule via AI
+      // 3. Generate rule via AI
       console.log('\nGenerating rule...')
       const generator = new RuleGenerator()
       const rule = await generator.generate(description.trim())
 
-      // 5. Show YAML preview
+      // 4. Show YAML preview
       console.log('\nGenerated rule:\n')
       console.log(YAML.stringify([rule]).trim())
 
-      // 6. Confirm
+      // 5. Confirm
       const answer = await rl.question('\nAdd this rule to config? (y/n) ')
       rl.close()
 
@@ -202,13 +201,18 @@ program
         return
       }
 
-      // 7. Append rule to config
-      const fileContent = fs.readFileSync(configPath, 'utf-8')
-      const config = YAML.parse(fileContent) || {}
+      // 6. Create config file if needed, then append rule
+      let config: Record<string, unknown>
+      if (fs.existsSync(configPath)) {
+        config = YAML.parse(fs.readFileSync(configPath, 'utf-8')) || {}
+      } else {
+        config = YAML.parse(DEFAULT_CONFIG_CONTENT) || {}
+        console.log(`Creating ${configPath}...`)
+      }
       if (!Array.isArray(config.rules)) {
         config.rules = []
       }
-      config.rules.push(rule)
+      ;(config.rules as unknown[]).push(rule)
       fs.writeFileSync(configPath, YAML.stringify(config), 'utf-8')
       console.log(`Rule "${rule.id}" added to ${configPath}`)
     } catch (error) {
@@ -229,7 +233,7 @@ cacheCmd
   .description('Clear cache')
   .action(() => {
     try {
-      const cache = new CacheManager('.ai-linter')
+      const cache = new CacheManager('.ai-lint')
       cache.clear()
       console.log('✓ Cache cleared')
     } catch (error) {
@@ -247,7 +251,7 @@ cacheCmd
   .description('Show cache stats')
   .action(() => {
     try {
-      const cache = new CacheManager('.ai-linter')
+      const cache = new CacheManager('.ai-lint')
       cache.load()
       const stats = cache.status()
       console.log(`Cache entries: ${stats.entries}`)

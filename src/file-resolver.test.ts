@@ -60,6 +60,20 @@ describe('FileResolver', () => {
       expect(result).toEqual([])
     })
 
+    test('rejects directories', () => {
+      mkdirSync(path.join(tempDir, 'src'), { recursive: true })
+      writeFileSync(path.join(tempDir, 'src', 'file.ts'), 'content')
+
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const result = resolver.resolveExplicit(['src', 'src/file.ts'])
+
+      expect(result).toEqual(['src/file.ts'])
+      expect(warnSpy).toHaveBeenCalledWith('Warning: Not a file (directory?): src')
+
+      warnSpy.mockRestore()
+    })
+
     test('excludes gitignored files', () => {
       writeFileSync(path.join(tempDir, 'tracked.ts'), 'content')
       writeFileSync(path.join(tempDir, 'ignored.ts'), 'content')

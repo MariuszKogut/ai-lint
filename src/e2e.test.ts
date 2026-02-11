@@ -28,7 +28,7 @@ describe('E2E Tests — Full Workflow', () => {
 
   beforeEach(() => {
     // Create temp directory for each test
-    tempDir = mkdtempSync(join(tmpdir(), 'ai-linter-e2e-'))
+    tempDir = mkdtempSync(join(tmpdir(), 'ai-lint-e2e-'))
 
     // Clear mock calls
     mockGenerateText.mockClear()
@@ -54,7 +54,7 @@ describe('E2E Tests — Full Workflow', () => {
       ...config,
     }
     writeFileSync(
-      join(tempDir, '.ai-linter.yml'),
+      join(tempDir, '.ai-lint.yml'),
       `model: ${fullConfig.model}
 concurrency: ${fullConfig.concurrency}
 git_base: ${fullConfig.git_base}
@@ -92,8 +92,8 @@ ${fullConfig.rules
    * Helper: run the linter engine
    */
   async function runLinter(files: string[]) {
-    const config = new ConfigLoader().load(join(tempDir, '.ai-linter.yml'))
-    const cache = new CacheManager(join(tempDir, '.ai-linter'))
+    const config = new ConfigLoader().load(join(tempDir, '.ai-lint.yml'))
+    const cache = new CacheManager(join(tempDir, '.ai-lint'))
     const client = new AnthropicClient(config.model)
     const matcher = new RuleMatcher(config.rules)
     const reporter = new Reporter()
@@ -375,7 +375,7 @@ ${fullConfig.rules
   // Test 8: Invalid config
   it('should throw error for invalid config', () => {
     writeFileSync(
-      join(tempDir, '.ai-linter.yml'),
+      join(tempDir, '.ai-lint.yml'),
       `model: haiku
 rules:
   - id: missing_severity
@@ -384,7 +384,7 @@ rules:
     prompt: "Test prompt"`,
     )
 
-    expect(() => new ConfigLoader().load(join(tempDir, '.ai-linter.yml'))).toThrow()
+    expect(() => new ConfigLoader().load(join(tempDir, '.ai-lint.yml'))).toThrow()
   })
 
   // Test 9: No matching files

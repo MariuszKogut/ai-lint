@@ -1,7 +1,12 @@
 import { execSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import path from 'node:path'
 import fg from 'fast-glob'
+
+/** Normalize path separators to forward slashes (for micromatch/glob compatibility on Windows) */
+function toPosix(filePath: string): string {
+  return filePath.replace(/\\/g, '/')
+}
 
 /**
  * FileResolver resolves file paths from different sources:
@@ -29,13 +34,18 @@ export class FileResolver {
       // Convert to absolute path
       const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(this.cwd, filePath)
 
-      if (existsSync(absolutePath)) {
-        // Convert back to relative path
-        const relativePath = path.relative(this.cwd, absolutePath)
-        resolvedPaths.push(relativePath)
-      } else {
+      if (!existsSync(absolutePath)) {
         console.warn(`Warning: File does not exist: ${filePath}`)
+        continue
       }
+
+      if (!statSync(absolutePath).isFile()) {
+        console.warn(`Warning: Not a file (directory?): ${filePath}`)
+        continue
+      }
+
+      const relativePath = toPosix(path.relative(this.cwd, absolutePath))
+      resolvedPaths.push(relativePath)
     }
 
     return this.filterGitIgnored(resolvedPaths)
@@ -60,7 +70,7 @@ export class FileResolver {
         .trim()
         .split('\n')
         .filter((line) => line.length > 0)
-        .map((filePath) => path.relative(this.cwd, path.resolve(this.cwd, filePath)))
+        .map((filePath) => toPosix(path.relative(this.cwd, path.resolve(this.cwd, filePath))))
         .filter((filePath) => {
           const absolutePath = path.resolve(this.cwd, filePath)
           return existsSync(absolutePath)
@@ -96,7 +106,7 @@ export class FileResolver {
 
       // Return relative paths, filtered against .gitignore
       const relativePaths = files.map((filePath) =>
-        path.relative(this.cwd, path.resolve(this.cwd, filePath)),
+        toPosix(path.relative(this.cwd, path.resolve(this.cwd, filePath))),
       )
       return this.filterGitIgnored(relativePaths)
     } catch (error) {

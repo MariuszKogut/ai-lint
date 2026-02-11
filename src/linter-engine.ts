@@ -119,8 +119,9 @@ export class LinterEngine {
     // Report results
     this.deps.reporter.report(allResults, summary)
 
-    // Determine exit code (1 if any errors, 0 otherwise)
-    const exitCode = summary.errors > 0 ? 1 : 0
+    // Determine exit code (1 if any errors or API failures, 0 otherwise)
+    const hasApiErrors = allResults.some((r) => r.api_error)
+    const exitCode = summary.errors > 0 || hasApiErrors ? 1 : 0
 
     return { results: allResults, summary, exitCode }
   }

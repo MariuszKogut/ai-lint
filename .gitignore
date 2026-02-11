@@ -3,4 +3,6 @@ dist/
 .env
 *.tgz
 .idea/
-.ai-linter/
+.ai-lint/
+coverage/
+junit.xml

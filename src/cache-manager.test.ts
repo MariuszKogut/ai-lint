@@ -13,7 +13,7 @@ describe('CacheManager', () => {
   beforeEach(() => {
     // Create a temporary directory for each test
     tempDir = mkdtempSync(join(tmpdir(), 'cache-test-'))
-    cacheDir = join(tempDir, '.ai-linter')
+    cacheDir = join(tempDir, '.ai-lint')
     manager = new CacheManager(cacheDir)
   })
 
@@ -240,7 +240,7 @@ describe('CacheManager', () => {
   describe('save()', () => {
     it('creates directory if missing', () => {
       // Create a manager with a nested path that doesn't exist
-      const deepPath = join(tempDir, 'nested', 'deep', '.ai-linter')
+      const deepPath = join(tempDir, 'nested', 'deep', '.ai-lint')
       const deepManager = new CacheManager(deepPath)
 
       const ruleId = 'test_rule'

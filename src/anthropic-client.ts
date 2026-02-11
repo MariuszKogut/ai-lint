@@ -79,9 +79,10 @@ ${job.fileContent}
         file: job.filePath,
         severity: job.rule.severity,
         pass: false,
-        message: error instanceof Error ? error.message : 'Unknown error occurred',
+        message: `API error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
         duration_ms: durationMs,
         cached: false,
+        api_error: true,
       }
     }
   }

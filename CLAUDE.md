@@ -1,4 +1,4 @@
-# ai-linter
+# ai-lint
 
 AI-powered code linter with custom YAML rules and Anthropic API.
 
@@ -31,14 +31,14 @@ src/
   cache-manager.ts      # Content-hash based result caching
   reporter.ts           # Console output formatting
   types.ts              # All TypeScript interfaces
-  schema.json           # JSON Schema for .ai-linter.yml
+  schema.json           # JSON Schema for .ai-lint.yml
 __test-data__/          # YAML fixtures for config-loader tests
 docs/adr/               # Architecture Decision Records
 ```
 
 ## Conventions
 
-- Config file: `.ai-linter.yml` (validated against `src/schema.json`)
-- Cache directory: `.ai-linter/cache.json`
+- Config file: `.ai-lint.yml` (validated against `src/schema.json`)
+- Cache directory: `.ai-lint/cache.json`
 - Tests: unit tests with vitest, mocked Anthropic API
 - English language in UI texts and prompts

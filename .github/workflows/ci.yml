@@ -1,30 +1,52 @@
-name: CI
+name: ci
 
 on:
-  push:
-    branches: [main]
   pull_request:
-    branches: [main]
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  build:
+    name: '📦 Build & Test'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      - run: npm ci
+      - name: '📦 Install packages'
+        run: npm ci
 
-      - name: Lint & format check
+      - name: '🔍 Lint & format check'
         run: npm run check
 
-      - name: Build
+      - name: '🔧 Build'
         run: npm run build
 
-      - name: Unit & E2E tests
-        run: npm test
+      - name: '🔬 Tests with coverage'
+        run: npm run test:coverage
+
+      - name: '📊 Publish Test Results'
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: junit.xml
+
+      - name: '📈 Coverage Report'
+        uses: davelosert/vitest-coverage-report-action@v2
+        if: always()
+        with:
+          file-coverage-mode: changes
