@@ -55,7 +55,7 @@ src/
   reporter.ts           # Console output formatting
   rule-generator.ts     # Interactive AI rule generation
   types.ts              # All TypeScript interfaces
-  schema.json           # JSON Schema for .ai-linter.yml
+  schema.json           # JSON Schema for .ai-lint.yml
 ```
 
 ## Adding New Models

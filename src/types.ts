@@ -53,7 +53,7 @@ export interface CacheEntry {
   timestamp: string // ISO 8601
 }
 
-// Cache-Datei: .ai-linter/cache.json
+// Cache-Datei: .ai-lint/cache.json
 export interface CacheStore {
   version: 1
   entries: Record<string, CacheEntry> // key: `${rule_id}:${filePath}`

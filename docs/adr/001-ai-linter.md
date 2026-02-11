@@ -32,7 +32,7 @@
 
 | # | Frage | Entscheidung |
 | --- | --- | --- |
-| 1 | Regel-Format? | **YAML-Datei** — `.ai-linter.yml` im Projekt-Root. Passt zum bestehenden YAML-Stack. |
+| 1 | Regel-Format? | **YAML-Datei** — `.ai-lint.yml` im Projekt-Root. Passt zum bestehenden YAML-Stack. |
 | 2 | AI-Backend? | **Nur API (kein CLI)** — Anthropic SDK direkt. Schneller, mehr Kontrolle, keine CLI-Dependency. |
 | 3 | Cache-Strategie? | **Content-Hash (SHA-256)** — SHA-256 des Dateiinhalts + Regel-Prompt-Hash. Absolut zuverlaessig. |
 | 4 | Auto-Fix? | **Nein, nur Report** — Linter meldet Probleme mit Beschreibung und Severity. Kein Code-Eingriff. |
@@ -42,13 +42,13 @@
 | 8 | API Provider? | **Anthropic API (Claude)** — `@anthropic-ai/sdk`. Haiku fuer Speed, Sonnet fuer Qualitaet. |
 | 9 | Git-Modus? | **Diff gegen Branch** — `git diff --name-only <base>...HEAD`. Default-Base aus Config, ueberschreibbar per `--base`. |
 | 10 | Parallelitaet? | **Ja, mit Concurrency-Limit** — `p-limit` mit konfigurierbarem Limit (Default: 5). |
-| 11 | Cache-Ort? | **`.ai-linter/` im Projekt** — Pro-Projekt isoliert, in `.gitignore`. |
+| 11 | Cache-Ort? | **`.ai-lint/` im Projekt** — Pro-Projekt isoliert, in `.gitignore`. |
 | 12 | Presets/Extends? | **Nein** — Jedes Projekt definiert eigene Regeln. Kein Import, keine Abhaengigkeiten. |
 | 13 | Code-Stil? | **Klassen bevorzugen** — Module als Klassen statt Dateien mit vielen losen Funktionen. Bessere Kapselung, Testbarkeit (Dependency Injection), klare Verantwortlichkeiten. |
 
 ---
 
-## 3. Config-Format (`.ai-linter.yml`)
+## 3. Config-Format (`.ai-lint.yml`)
 
 ```yaml
 model: haiku                     # Default-Modell (haiku | sonnet | opus)
@@ -109,21 +109,21 @@ rules:
 
 ```bash
 # Einzelne Dateien linten (gegen alle passenden Regeln)
-ai-linter lint src/routes/user.ts src/routes/auth.ts
+ai-lint lint src/routes/user.ts src/routes/auth.ts
 
 # Alle Dateien die zu mindestens einer Regel matchen
-ai-linter lint --all
+ai-lint lint --all
 
 # Nur geaenderte Dateien (git diff gegen Branch)
-ai-linter lint --changed                  # diff gegen git_base aus Config
-ai-linter lint --changed --base=develop   # custom Branch
+ai-lint lint --changed                  # diff gegen git_base aus Config
+ai-lint lint --changed --base=develop   # custom Branch
 
 # Config validieren
-ai-linter validate
+ai-lint validate
 
 # Cache verwalten
-ai-linter cache clear
-ai-linter cache status
+ai-lint cache clear
+ai-lint cache status
 ```
 
 ### Exit-Codes
@@ -146,12 +146,12 @@ src/
   config-loader.ts        # YAML laden + JSON-Schema validieren
   rule-matcher.ts         # Glob-Pattern → Dateien matchen
   file-resolver.ts        # Git-Diff + Glob → finale Dateiliste
-  cache-manager.ts        # SHA-256 Hash Cache (.ai-linter/cache.json)
+  cache-manager.ts        # SHA-256 Hash Cache (.ai-lint/cache.json)
   linter-engine.ts        # Orchestrierung: Match → Filter → Lint → Report
   anthropic-client.ts     # Anthropic SDK Wrapper (Lint-Prompt bauen + senden)
   reporter.ts             # Styled Terminal-Output (chalk)
   types.ts                # Alle TypeScript Interfaces
-  schema.json             # JSON Schema fuer .ai-linter.yml
+  schema.json             # JSON Schema fuer .ai-lint.yml
 
   config-loader.test.ts   # Config laden + validieren
   rule-matcher.test.ts    # Glob-Matching Logik
@@ -168,7 +168,7 @@ __test-data__/            # YAML Fixtures + Fake-Quellcode-Dateien
 ### Datenfluss
 
 ```
-                    .ai-linter.yml
+                    .ai-lint.yml
                          |
                     +----v----+
                     | Config   |  Laden + JSON Schema Validieren
@@ -231,8 +231,8 @@ __test-data__/            # YAML Fixtures + Fake-Quellcode-Dateien
 
 ```typescript
 // cli.ts — Verdrahtung
-const config = new ConfigLoader().load('.ai-linter.yml')
-const cache = new CacheManager('.ai-linter')
+const config = new ConfigLoader().load('.ai-lint.yml')
+const cache = new CacheManager('.ai-lint')
 const client = new AnthropicClient(config.model)
 const matcher = new RuleMatcher(config.rules)
 const resolver = new FileResolver(config.git_base)
@@ -307,7 +307,7 @@ interface CacheEntry {
   timestamp: string    // ISO 8601
 }
 
-// Cache-Datei: .ai-linter/cache.json
+// Cache-Datei: .ai-lint/cache.json
 interface CacheStore {
   version: 1
   entries: Record<string, CacheEntry>  // key: `${rule_id}:${filePath}`
@@ -395,7 +395,7 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 ### Cache-Datei
 
 ```
-.ai-linter/
+.ai-lint/
   cache.json           # Alle Cache-Eintraege
 ```
 
@@ -409,7 +409,7 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 ### `.gitignore` Eintrag
 
 ```
-.ai-linter/
+.ai-lint/
 ```
 
 ---
@@ -492,9 +492,9 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 | SARIF Output | GitHub Code Scanning Integration spaeter. |
 | Cross-File Regeln | Komplex. Jede Datei wird isoliert geprueft. |
 | Presets / Extends | YAGNI. Eigene Regeln pro Projekt genuegen. |
-| Inline-Annotations | Kein `// ai-linter-disable` in v1. |
+| Inline-Annotations | Kein `// ai-lint-disable` in v1. |
 | MCP Integration | Kein MCP-Server in v1. |
-| Pre-Commit Hook | Doku reicht: `ai-linter lint --changed` manuell in Hook einbinden. |
+| Pre-Commit Hook | Doku reicht: `ai-lint lint --changed` manuell in Hook einbinden. |
 | Multi-Provider | Nur Anthropic. Kein OpenAI, kein Ollama in v1. |
 | Watch Mode | Kein File-Watcher. Manuell oder per CI ausfuehren. |
 
@@ -558,7 +558,7 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 - ⬜ **1.1** Bestehende claude-code-workflow Dateien aufraumen (alte Module entfernen oder separieren)
 - ⬜ **1.2** `package.json` anpassen: Name, Dependencies (+ `@anthropic-ai/sdk`, `p-limit`, `micromatch`; - `execa`, `stream-json`, `ora`)
 - ⬜ **1.3** `types.ts` erstellen mit allen Interfaces (LinterConfig, LintRule, LintJob, LintResult, CacheStore, etc.)
-- ⬜ **1.4** `schema.json` erstellen fuer `.ai-linter.yml` Validierung
+- ⬜ **1.4** `schema.json` erstellen fuer `.ai-lint.yml` Validierung
 - ⬜ **1.5** `config-loader.ts` implementieren (YAML laden, Schema validieren, Defaults auflösen)
 - ⬜ **1.6** `config-loader.test.ts` mit allen Validierungs-Tests
 
@@ -606,7 +606,7 @@ Ein Cache-Eintrag ist nur gueltig wenn **sowohl** der Dateiinhalt **als auch** d
 - ⬜ **5.1** README.md aktualisieren
 - ⬜ **5.2** `tsup.config.ts` anpassen (Entry Point, Shebang)
 - ⬜ **5.3** System-Test mit echter Anthropic API (optional, teuer)
-- ⬜ **5.4** `.ai-linter.yml` Beispiel-Config im Repo
+- ⬜ **5.4** `.ai-lint.yml` Beispiel-Config im Repo
 
 **Quality Gate Phase 5:**
 - ⬜ `npx biome check` bestanden

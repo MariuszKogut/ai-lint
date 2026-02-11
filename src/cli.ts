@@ -52,7 +52,7 @@ program
   .option('--all', 'Lint all files matching rule globs')
   .option('--changed', 'Lint only git-changed files')
   .option('--base <branch>', 'Override git_base (used with --changed)')
-  .option('--config <path>', 'Config file path', '.ai-linter.yml')
+  .option('--config <path>', 'Config file path', '.ai-lint.yml')
   .option('--verbose', 'Show detailed progress (API calls vs cache hits)')
   .action(async (files: string[], options) => {
     try {
@@ -67,7 +67,7 @@ program
       }
 
       // 3. Load cache
-      const cache = new CacheManager('.ai-linter')
+      const cache = new CacheManager('.ai-lint')
       cache.load()
 
       // 4. Resolve files based on mode
@@ -137,7 +137,7 @@ program
 program
   .command('validate')
   .description('Validate config file')
-  .option('--config <path>', 'Config file path', '.ai-linter.yml')
+  .option('--config <path>', 'Config file path', '.ai-lint.yml')
   .action((options) => {
     try {
       const loader = new ConfigLoader()
@@ -162,7 +162,7 @@ program
 program
   .command('generate-rule')
   .description('Interactively generate a new lint rule using AI')
-  .option('--config <path>', 'Config file path', '.ai-linter.yml')
+  .option('--config <path>', 'Config file path', '.ai-lint.yml')
   .action(async (options) => {
     try {
       // 1. Check for API key
@@ -233,7 +233,7 @@ cacheCmd
   .description('Clear cache')
   .action(() => {
     try {
-      const cache = new CacheManager('.ai-linter')
+      const cache = new CacheManager('.ai-lint')
       cache.clear()
       console.log('✓ Cache cleared')
     } catch (error) {
@@ -251,7 +251,7 @@ cacheCmd
   .description('Show cache stats')
   .action(() => {
     try {
-      const cache = new CacheManager('.ai-linter')
+      const cache = new CacheManager('.ai-lint')
       cache.load()
       const stats = cache.status()
       console.log(`Cache entries: ${stats.entries}`)

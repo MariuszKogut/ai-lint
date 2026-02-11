@@ -23,7 +23,7 @@ export class ConfigLoader {
   }
 
   /**
-   * Load and validate .ai-linter.yml config
+   * Load and validate .ai-lint.yml config
    */
   load(filePath: string): LinterConfig {
     // Read YAML file

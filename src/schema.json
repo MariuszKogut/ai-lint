@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "AI Linter Config",
-  "description": "Configuration schema for .ai-linter.yml",
+  "description": "Configuration schema for .ai-lint.yml",
   "type": "object",
   "additionalProperties": false,
   "properties": {

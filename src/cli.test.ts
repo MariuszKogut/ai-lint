@@ -8,7 +8,7 @@ describe('CLI', () => {
   const cliPath = path.join(__dirname, 'cli.ts')
   const testConfigPath = path.join(__dirname, '../__test-data__/valid-config.yml')
   const invalidConfigPath = path.join(__dirname, '../__test-data__/invalid-missing-rules.yml')
-  const cacheDir = path.join(process.cwd(), '.ai-linter')
+  const cacheDir = path.join(process.cwd(), '.ai-lint')
 
   // Helper to run CLI commands via tsx
   const runCli = (args: string[], options: any = {}) => {

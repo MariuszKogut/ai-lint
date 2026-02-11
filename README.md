@@ -51,7 +51,7 @@ OPEN_ROUTER_KEY=sk-or-v1-...
 
 ## 🚀 Quick Start
 
-**1.** Create a `.ai-linter.yml` in your project root:
+**1.** Create a `.ai-lint.yml` in your project root:
 
 ```yaml
 model: gemini-flash    # cheapest and fastest
@@ -95,7 +95,7 @@ rules:
 
 ```gitignore
 # ai-lint cache (auto-generated)
-.ai-linter/
+.ai-lint/
 
 # API keys
 .env
@@ -144,7 +144,7 @@ ai-lint lint [files...]
   --all              Lint all files matching rule globs
   --changed          Lint only git-changed files (vs git_base)
   --base <branch>    Override git_base branch
-  --config <path>    Config file (default: .ai-linter.yml)
+  --config <path>    Config file (default: .ai-lint.yml)
   --verbose          Show API vs cache per check
 ```
 
@@ -156,7 +156,7 @@ Check your config file without running any lints.
 
 ```
 ai-lint validate
-  --config <path>    Config file (default: .ai-linter.yml)
+  --config <path>    Config file (default: .ai-lint.yml)
 ```
 
 ### `ai-lint generate-rule`
@@ -165,7 +165,7 @@ Interactively generate a new rule with AI. Describe what to check, get YAML back
 
 ```
 ai-lint generate-rule
-  --config <path>    Config file (default: .ai-linter.yml)
+  --config <path>    Config file (default: .ai-lint.yml)
 ```
 
 ### `ai-lint cache clear`
@@ -178,7 +178,7 @@ Show cache statistics (entries, size on disk).
 
 ## ⚙️ Config Reference
 
-Config file: `.ai-linter.yml` (validated against a JSON schema)
+Config file: `.ai-lint.yml` (validated against a JSON schema)
 
 ### Top-level
 
@@ -212,7 +212,7 @@ Config file: `.ai-linter.yml` (validated against a JSON schema)
 
 ## 🔧 How It Works
 
-1. **Config** — loads `.ai-linter.yml`, validates against JSON schema
+1. **Config** — loads `.ai-lint.yml`, validates against JSON schema
 2. **Files** — resolves via `--all` (glob), `--changed` (git diff), or explicit paths; respects `.gitignore`
 3. **Matching** — finds rules whose `glob` matches and `exclude` doesn't
 4. **Cache** — skips API calls if (file hash + prompt hash) is already cached
@@ -221,7 +221,7 @@ Config file: `.ai-linter.yml` (validated against a JSON schema)
 
 ## 💾 Caching
 
-Results are cached in `.ai-linter/cache.json` based on SHA-256 hashes of file content and rule prompt. Cache auto-invalidates when either changes. Force a fresh run with `ai-lint cache clear`.
+Results are cached in `.ai-lint/cache.json` based on SHA-256 hashes of file content and rule prompt. Cache auto-invalidates when either changes. Force a fresh run with `ai-lint cache clear`.
 
 ## 📝 Example Rules
 
