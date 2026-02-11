@@ -15,12 +15,8 @@ const MODEL_MAP: Record<Model, string> = {
 }
 
 const SYSTEM_PROMPT = `You are a code linter. Analyze the given file against the provided rule.
-Respond ONLY with a valid JSON object, no additional text.
-Format: { "pass": boolean, "message": string, "line": number | null }
-- "pass": true if the file complies with the rule, false otherwise
-- "message": brief explanation (1-3 sentences). If pass=true, confirm compliance.
-  If pass=false, describe the violation.
-- "line": approximate line number of the first violation, or null`
+- If the file complies, set pass=true and confirm briefly.
+- If it violates the rule, set pass=false, describe the violation in 1-3 sentences, and set line to the approximate line number of the first violation.`
 
 const lintResponseSchema = z.object({
   pass: z.boolean(),
