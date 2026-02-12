@@ -97,7 +97,7 @@ describe('AIClient', () => {
     expect(result.line).toBe(1)
   })
 
-  it('should return pass=false with error message on null output', async () => {
+  it('should retry up to 3x and return api_error when AI returns no content', async () => {
     mockGenerateText.mockResolvedValue({
       output: null,
     })
@@ -106,8 +106,27 @@ describe('AIClient', () => {
     const result = await client.lint(job)
 
     expect(result.pass).toBe(false)
-    expect(result.message).toContain('AI response was not valid JSON')
+    expect(result.message).toContain('AI returned no content')
     expect(result.api_error).toBe(true)
+    expect(mockGenerateText).toHaveBeenCalledTimes(3)
+  })
+
+  it('should retry up to 3x and return api_error when AI returns empty message content', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        pass: true,
+        message: '   ',
+        line: null,
+      },
+    })
+
+    const job = createMockJob()
+    const result = await client.lint(job)
+
+    expect(result.pass).toBe(false)
+    expect(result.message).toContain('AI returned empty content')
+    expect(result.api_error).toBe(true)
+    expect(mockGenerateText).toHaveBeenCalledTimes(3)
   })
 
   it('should retry on rate limit (429) and succeed on 2nd attempt', async () => {
@@ -146,7 +165,31 @@ describe('AIClient', () => {
     expect(mockGenerateText).toHaveBeenCalledTimes(2)
   })
 
-  it('should throw error when all retries exhausted', async () => {
+  it('should retry generic API failures up to 3x', async () => {
+    mockGenerateText.mockRejectedValue(new Error('Network timeout'))
+
+    const job = createMockJob()
+    const result = await client.lint(job)
+
+    expect(result.pass).toBe(false)
+    expect(result.message).toContain('Network timeout')
+    expect(result.api_error).toBe(true)
+    expect(mockGenerateText).toHaveBeenCalledTimes(3)
+  })
+
+  it('should not retry non-retryable API failures', async () => {
+    mockGenerateText.mockRejectedValue(new Error('400 Bad Request'))
+
+    const job = createMockJob()
+    const result = await client.lint(job)
+
+    expect(result.pass).toBe(false)
+    expect(result.message).toContain('400 Bad Request')
+    expect(result.api_error).toBe(true)
+    expect(mockGenerateText).toHaveBeenCalledTimes(1)
+  })
+
+  it('should return api error when all retries exhausted', async () => {
     mockGenerateText.mockRejectedValue(new Error('429 Rate limited'))
 
     const job = createMockJob()
@@ -193,6 +236,7 @@ describe('AIClient', () => {
     const job = createMockJob()
 
     await expect(client.lint(job)).rejects.toThrow('OPEN_ROUTER_KEY is invalid or missing')
+    expect(mockGenerateText).toHaveBeenCalledTimes(1)
   })
 
   it('should use correct model mapping for haiku', async () => {

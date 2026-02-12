@@ -24,6 +24,9 @@ const lintResponseSchema = z.object({
   line: z.number().nullable(),
 })
 
+const MAX_RETRY_ATTEMPTS = 3
+const EMPTY_RESPONSE_ERRORS = new Set(['AI returned no content', 'AI returned empty content'])
+
 export class AIClient {
   constructor(private defaultModel: Model) {}
 
@@ -99,16 +102,27 @@ ${job.fileContent}
       })
 
       if (!output) {
-        throw new Error('AI response was not valid JSON')
+        throw new Error('AI returned no content')
+      }
+
+      if (!output.message.trim()) {
+        throw new Error('AI returned empty content')
       }
 
       return output
     } catch (error) {
+      const message = error instanceof Error ? error.message : ''
+      const isAuthError =
+        /401/.test(message) || /unauthorized/i.test(message) || /api key/i.test(message)
       const isRetryable =
-        error instanceof Error &&
-        (/429|rate.limit/i.test(error.message) || /5\d{2}|server.error/i.test(error.message))
+        EMPTY_RESPONSE_ERRORS.has(message) ||
+        /429|rate.limit/i.test(message) ||
+        /5\d{2}|server.error/i.test(message) ||
+        /timeout|timed out|econnreset|econnrefused|enotfound|eai_again|network|fetch failed|socket hang up/i.test(
+          message,
+        )
 
-      if (isRetryable && attempt < 3) {
+      if (!isAuthError && isRetryable && attempt < MAX_RETRY_ATTEMPTS) {
         const delayMs = 1000 * 2 ** (attempt - 1)
         await new Promise((resolve) => setTimeout(resolve, delayMs))
         return this.callApiWithRetry(model, userMessage, attempt + 1)

@@ -1,15 +1,17 @@
 #!/usr/bin/env node
-import fs from 'node:fs'
 import { createRequire } from 'node:module'
+import { resolve } from 'node:path'
 import readline from 'node:readline/promises'
 import { Command } from 'commander'
 import dotenv from 'dotenv'
-import YAML from 'yaml'
 import { AIClient } from './ai-client'
-import { CacheManager } from './cache-manager'
+import { CacheManager } from './cache-manager.js'
 import { ConfigLoader } from './config-loader'
 import { FileResolver } from './file-resolver'
+import { runGenerateRuleFlow } from './generate-rule-flow'
 import { LinterEngine } from './linter-engine'
+import { createEmptySummary, writeReportOnlyReport } from './report-only.js'
+import { runReportOnlyLint } from './report-only-runner.js'
 import { Reporter } from './reporter'
 import { RuleGenerator } from './rule-generator'
 import { RuleMatcher } from './rule-matcher'
@@ -54,7 +56,12 @@ program
   .option('--base <branch>', 'Override git_base (used with --changed)')
   .option('--config <path>', 'Config file path', '.ai-lint.yml')
   .option('--verbose', 'Show detailed progress (API calls vs cache hits)')
+  .option('--report-only', 'Silent mode; writes JSON report at the end')
+  .option('--report-file <path>', 'JSON report path for --report-only', '.ai-lint/report.json')
   .action(async (files: string[], options) => {
+    const reportOnly = Boolean(options.reportOnly)
+    const reportFile = options.reportFile as string
+
     try {
       // 1. Load config
       const loader = new ConfigLoader()
@@ -66,9 +73,8 @@ program
         process.exit(2)
       }
 
-      // 3. Load cache
+      // 3. Prepare cache
       const cache = new CacheManager('.ai-lint')
-      cache.load()
 
       // 4. Resolve files based on mode
       const gitBase = options.base || config.git_base
@@ -83,12 +89,34 @@ program
       } else if (files.length > 0) {
         filesToLint = resolver.resolveExplicit(files)
       } else {
+        if (reportOnly) {
+          writeReportOnlyReport(reportFile, {
+            results: [],
+            summary: createEmptySummary(),
+            exitCode: 0,
+          })
+          console.log(`Report written: ${resolve(reportFile)}`)
+          process.exit(0)
+        }
         console.log('No files to lint. Use --all, --changed, or specify explicit files.')
         process.exit(0)
       }
 
       // Check if we have files to lint
       if (filesToLint.length === 0) {
+        if (reportOnly) {
+          const exitCode = await runReportOnlyLint({
+            filesToLint,
+            config,
+            reportFile,
+            deps: {
+              cache,
+              client: new AIClient(config.model),
+              matcher: new RuleMatcher(config.rules),
+            },
+          })
+          process.exit(exitCode)
+        }
         console.log('No files to lint.')
         process.exit(0)
       }
@@ -96,6 +124,17 @@ program
       // 5. Create dependencies
       const client = new AIClient(config.model)
       const matcher = new RuleMatcher(config.rules)
+
+      if (reportOnly) {
+        const exitCode = await runReportOnlyLint({
+          filesToLint,
+          config,
+          reportFile,
+          deps: { cache, client, matcher },
+        })
+        process.exit(exitCode)
+      }
+
       const reporter = new Reporter()
 
       console.log(
@@ -124,6 +163,17 @@ program
       // 7. Exit with appropriate code
       process.exit(exitCode)
     } catch (error) {
+      if (reportOnly) {
+        writeReportOnlyReport(reportFile, {
+          results: [],
+          summary: createEmptySummary(),
+          exitCode: 2,
+          error: error instanceof Error ? error.message : 'Unknown error occurred',
+        })
+        console.log(`Report written: ${resolve(reportFile)}`)
+        process.exit(2)
+      }
+
       if (error instanceof Error) {
         console.error(`Error: ${error.message}`)
       } else {
@@ -173,48 +223,15 @@ program
 
       const configPath = options.config
 
-      // 2. Interactive prompt for rule description
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
-      const description = await rl.question('Describe what the rule should check:\n> ')
-
-      if (!description.trim()) {
-        console.error('Error: Description cannot be empty')
-        rl.close()
-        process.exit(2)
-      }
-
-      // 3. Generate rule via AI
-      console.log('\nGenerating rule...')
       const generator = new RuleGenerator()
-      const rule = await generator.generate(description.trim())
-
-      // 4. Show YAML preview
-      console.log('\nGenerated rule:\n')
-      console.log(YAML.stringify([rule]).trim())
-
-      // 5. Confirm
-      const answer = await rl.question('\nAdd this rule to config? (y/n) ')
-      rl.close()
-
-      if (answer.trim().toLowerCase() !== 'y') {
-        console.log('Aborted.')
-        return
-      }
-
-      // 6. Create config file if needed, then append rule
-      let config: Record<string, unknown>
-      if (fs.existsSync(configPath)) {
-        config = YAML.parse(fs.readFileSync(configPath, 'utf-8')) || {}
-      } else {
-        config = YAML.parse(DEFAULT_CONFIG_CONTENT) || {}
-        console.log(`Creating ${configPath}...`)
-      }
-      if (!Array.isArray(config.rules)) {
-        config.rules = []
-      }
-      ;(config.rules as unknown[]).push(rule)
-      fs.writeFileSync(configPath, YAML.stringify(config), 'utf-8')
-      console.log(`Rule "${rule.id}" added to ${configPath}`)
+      await runGenerateRuleFlow({
+        configPath,
+        io: rl,
+        generator,
+        log: console.log,
+        defaultConfigContent: DEFAULT_CONFIG_CONTENT,
+      })
     } catch (error) {
       if (error instanceof Error) {
         console.error(`Error: ${error.message}`)

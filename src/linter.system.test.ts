@@ -44,6 +44,7 @@ describe('System Test — Real OpenRouter API', () => {
     console.log('Result:', JSON.stringify(result, null, 2))
 
     expect(result.rule_id).toBe('no_hardcoded_secrets')
+    expect(result.api_error).not.toBe(true)
     expect(result.pass).toBe(false)
     expect(result.message).toBeTruthy()
     expect(result.cached).toBe(false)
