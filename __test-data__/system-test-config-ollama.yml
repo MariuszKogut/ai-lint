@@ -1,5 +1,5 @@
 provider: ollama
-model: llama3.2:3b
+model: gpt-oss:20b
 rules:
   - id: no_hardcoded_secrets
     name: No hardcoded secrets

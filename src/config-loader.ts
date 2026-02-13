@@ -1,5 +1,5 @@
 import fs from 'node:fs'
-import Ajv from 'ajv'
+import Ajv, { type ErrorObject } from 'ajv'
 import addFormats from 'ajv-formats'
 import YAML from 'yaml'
 import schema from './schema.json' with { type: 'json' }
@@ -48,21 +48,23 @@ export class ConfigLoader {
     }
 
     // Apply defaults
-    const provider = rawConfig.provider ?? 'openrouter'
+    const raw = rawConfig as Record<string, unknown>
+    const provider = (raw.provider as string | undefined) ?? 'openrouter'
 
     // Require model when provider is ollama (no sensible default)
-    if (provider === 'ollama' && !rawConfig.model) {
+    if (provider === 'ollama' && !raw.model) {
       throw new Error('Config validation failed:\n  - /model: is required when provider is ollama')
     }
 
     const config: LinterConfig = {
-      provider,
+      provider: provider as LinterConfig['provider'],
       provider_url:
-        rawConfig.provider_url ?? (provider === 'ollama' ? 'http://localhost:11434/v1' : undefined),
-      model: rawConfig.model ?? 'gemini-flash',
-      concurrency: rawConfig.concurrency ?? 5,
-      git_base: rawConfig.git_base ?? 'main',
-      rules: rawConfig.rules,
+        (raw.provider_url as string | undefined) ??
+        (provider === 'ollama' ? 'http://localhost:11434/v1' : undefined),
+      model: (raw.model as LinterConfig['model']) ?? 'gemini-flash',
+      concurrency: (raw.concurrency as number) ?? 5,
+      git_base: (raw.git_base as string) ?? 'main',
+      rules: raw.rules as LinterConfig['rules'],
     }
 
     // Validate unique rule IDs (custom validation not in schema)
@@ -119,7 +121,7 @@ export class ConfigLoader {
   /**
    * Format AJV validation errors into readable messages
    */
-  private formatValidationErrors(errors: Ajv.ErrorObject[]): string {
+  private formatValidationErrors(errors: ErrorObject[]): string {
     // Filter out verbose oneOf errors for cleaner messages
     const filteredErrors = errors.filter(
       (err) => err.keyword !== 'oneOf' && err.keyword !== 'additionalProperties',
