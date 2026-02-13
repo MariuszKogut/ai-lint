@@ -3,7 +3,14 @@ import Ajv from 'ajv'
 import addFormats from 'ajv-formats'
 import YAML from 'yaml'
 import schema from './schema.json' with { type: 'json' }
-import type { LinterConfig } from './types.js'
+import type { LinterConfig, OpenRouterModel } from './types.js'
+
+const OPENROUTER_MODELS: Set<string> = new Set<OpenRouterModel>([
+  'gemini-flash',
+  'haiku',
+  'sonnet',
+  'opus',
+])
 
 export class ConfigLoader {
   private static ajvInstance: Ajv | null = null
@@ -41,7 +48,17 @@ export class ConfigLoader {
     }
 
     // Apply defaults
+    const provider = rawConfig.provider ?? 'openrouter'
+
+    // Require model when provider is ollama (no sensible default)
+    if (provider === 'ollama' && !rawConfig.model) {
+      throw new Error('Config validation failed:\n  - /model: is required when provider is ollama')
+    }
+
     const config: LinterConfig = {
+      provider,
+      provider_url:
+        rawConfig.provider_url ?? (provider === 'ollama' ? 'http://localhost:11434/v1' : undefined),
       model: rawConfig.model ?? 'gemini-flash',
       concurrency: rawConfig.concurrency ?? 5,
       git_base: rawConfig.git_base ?? 'main',
@@ -50,6 +67,11 @@ export class ConfigLoader {
 
     // Validate unique rule IDs (custom validation not in schema)
     this.validateUniqueRuleIds(config.rules)
+
+    // Validate model names for openrouter provider
+    if (provider === 'openrouter') {
+      this.validateOpenRouterModels(config)
+    }
 
     return config
   }
@@ -72,6 +94,25 @@ export class ConfigLoader {
       throw new Error(
         `Duplicate rule IDs found: ${duplicates.join(', ')}. Each rule must have a unique ID.`,
       )
+    }
+  }
+
+  /**
+   * Validate that model names are known OpenRouter shortnames
+   */
+  private validateOpenRouterModels(config: LinterConfig): void {
+    if (!OPENROUTER_MODELS.has(config.model)) {
+      throw new Error(
+        `Unknown model '${config.model}' for openrouter provider. Allowed values: ${[...OPENROUTER_MODELS].join(', ')}`,
+      )
+    }
+
+    for (const rule of config.rules) {
+      if (rule.model && !OPENROUTER_MODELS.has(rule.model)) {
+        throw new Error(
+          `Unknown model '${rule.model}' in rule '${rule.id}' for openrouter provider. Allowed values: ${[...OPENROUTER_MODELS].join(', ')}`,
+        )
+      }
     }
   }
 
