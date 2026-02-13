@@ -240,6 +240,7 @@ rules: []
     expect(config.provider).toBe('ollama')
     expect(config.model).toBe('gpt-oss:20b')
     expect(config.provider_url).toBe('http://localhost:11434/v1')
+    expect(config.concurrency).toBe(1)
   })
 
   test('11. Ollama without model — throws error', () => {

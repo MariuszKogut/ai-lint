@@ -62,7 +62,7 @@ export class ConfigLoader {
         (raw.provider_url as string | undefined) ??
         (provider === 'ollama' ? 'http://localhost:11434/v1' : undefined),
       model: (raw.model as LinterConfig['model']) ?? 'gemini-flash',
-      concurrency: (raw.concurrency as number) ?? 5,
+      concurrency: (raw.concurrency as number) ?? (provider === 'ollama' ? 1 : 5),
       git_base: (raw.git_base as string) ?? 'main',
       rules: raw.rules as LinterConfig['rules'],
     }
