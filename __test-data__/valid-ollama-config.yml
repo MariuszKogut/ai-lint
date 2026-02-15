@@ -1,0 +1,12 @@
+provider: ollama
+provider_url: "http://localhost:11434/v1"
+model: "gpt-oss:20b"
+
+rules:
+  - id: no_console_log
+    name: No console.log statements
+    severity: warning
+    glob: "src/**/*.ts"
+    prompt: >
+      Check that the file does not contain any console.log statements.
+    model: "llama3:8b"

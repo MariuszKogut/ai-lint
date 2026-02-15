@@ -67,8 +67,8 @@ program
       const loader = new ConfigLoader()
       const config = loader.load(options.config)
 
-      // 2. Check for API key
-      if (!process.env.OPEN_ROUTER_KEY) {
+      // 2. Check for API key (only needed for openrouter)
+      if (config.provider === 'openrouter' && !process.env.OPEN_ROUTER_KEY) {
         console.error('Error: OPEN_ROUTER_KEY environment variable is required')
         process.exit(2)
       }
@@ -111,7 +111,11 @@ program
             reportFile,
             deps: {
               cache,
-              client: new AIClient(config.model),
+              client: new AIClient({
+                provider: config.provider,
+                providerUrl: config.provider_url,
+                defaultModel: config.model,
+              }),
               matcher: new RuleMatcher(config.rules),
             },
           })
@@ -122,7 +126,11 @@ program
       }
 
       // 5. Create dependencies
-      const client = new AIClient(config.model)
+      const client = new AIClient({
+        provider: config.provider,
+        providerUrl: config.provider_url,
+        defaultModel: config.model,
+      })
       const matcher = new RuleMatcher(config.rules)
 
       if (reportOnly) {
@@ -137,8 +145,12 @@ program
 
       const reporter = new Reporter()
 
+      const providerInfo =
+        config.provider === 'ollama'
+          ? `provider: ollama @ ${config.provider_url}`
+          : `provider: openrouter`
       console.log(
-        `Linting ${filesToLint.length} files against ${config.rules.length} rules (model: ${config.model})...\n`,
+        `Linting ${filesToLint.length} files against ${config.rules.length} rules (${providerInfo}, model: ${config.model})...\n`,
       )
 
       // 6. Create and run engine
@@ -194,6 +206,10 @@ program
       const config = loader.load(options.config)
 
       console.log('✓ Configuration is valid')
+      console.log(`  Provider: ${config.provider}`)
+      if (config.provider_url) {
+        console.log(`  Provider URL: ${config.provider_url}`)
+      }
       console.log(`  Model: ${config.model}`)
       console.log(`  Concurrency: ${config.concurrency}`)
       console.log(`  Git base: ${config.git_base}`)

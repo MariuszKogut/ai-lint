@@ -1,13 +1,14 @@
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
-import { generateText, type LanguageModelV1, Output } from 'ai'
+import { generateText, type LanguageModel, Output } from 'ai'
 import { z } from 'zod'
-import type { LintJob, LintResult, Model } from './types.js'
+import type { LintJob, LintResult, Model, OpenRouterModel, Provider } from './types.js'
 
 function getOpenRouter() {
   return createOpenRouter({ apiKey: process.env.OPEN_ROUTER_KEY })
 }
 
-const MODEL_MAP: Record<Model, string> = {
+const MODEL_MAP: Record<OpenRouterModel, string> = {
   'gemini-flash': 'google/gemini-2.5-flash',
   haiku: 'anthropic/claude-haiku-4.5',
   sonnet: 'anthropic/claude-sonnet-4.5',
@@ -27,13 +28,41 @@ const lintResponseSchema = z.object({
 const MAX_RETRY_ATTEMPTS = 3
 const EMPTY_RESPONSE_ERRORS = new Set(['AI returned no content', 'AI returned empty content'])
 
+interface AIClientOptions {
+  provider: Provider
+  providerUrl?: string
+  defaultModel: Model
+}
+
 export class AIClient {
-  constructor(private defaultModel: Model) {}
+  private provider: Provider
+  private providerUrl?: string
+  private defaultModel: Model
+
+  constructor(options: AIClientOptions) {
+    this.provider = options.provider
+    this.providerUrl = options.providerUrl
+    this.defaultModel = options.defaultModel
+  }
+
+  private resolveModel(modelName: Model): LanguageModel {
+    if (this.provider === 'ollama') {
+      const ollama = createOpenAICompatible({
+        name: 'ollama',
+        baseURL: this.providerUrl ?? 'http://localhost:11434/v1',
+        supportsStructuredOutputs: true,
+      })
+      return ollama(modelName)
+    }
+
+    const modelId = MODEL_MAP[modelName as OpenRouterModel]
+    return getOpenRouter()(modelId)
+  }
 
   async lint(job: LintJob): Promise<LintResult> {
     const startTime = Date.now()
-    const model = job.rule.model ?? this.defaultModel
-    const modelId = MODEL_MAP[model]
+    const modelName = job.rule.model ?? this.defaultModel
+    const model = this.resolveModel(modelName)
 
     const ext = job.filePath.split('.').pop() || 'txt'
 
@@ -46,7 +75,7 @@ ${job.fileContent}
 \`\`\``
 
     try {
-      const response = await this.callApiWithRetry(getOpenRouter()(modelId), userMessage)
+      const response = await this.callApiWithRetry(model, userMessage)
       const durationMs = Date.now() - startTime
 
       return {
@@ -64,12 +93,23 @@ ${job.fileContent}
       const durationMs = Date.now() - startTime
 
       if (
+        this.provider === 'openrouter' &&
         error instanceof Error &&
         (error.message.includes('401') ||
           error.message.includes('Unauthorized') ||
           error.message.includes('API key'))
       ) {
         throw new Error('OPEN_ROUTER_KEY is invalid or missing')
+      }
+
+      if (
+        this.provider === 'ollama' &&
+        error instanceof Error &&
+        (error.message.includes('ECONNREFUSED') || error.message.includes('fetch failed'))
+      ) {
+        throw new Error(
+          `Cannot connect to Ollama at ${this.providerUrl ?? 'http://localhost:11434/v1'}. Is Ollama running?`,
+        )
       }
 
       return {
@@ -87,7 +127,7 @@ ${job.fileContent}
   }
 
   private async callApiWithRetry(
-    model: LanguageModelV1,
+    model: LanguageModel,
     userMessage: string,
     attempt = 1,
   ): Promise<z.infer<typeof lintResponseSchema>> {
@@ -98,7 +138,7 @@ ${job.fileContent}
         system: SYSTEM_PROMPT,
         prompt: userMessage,
         temperature: 0,
-        maxTokens: 1024,
+        maxOutputTokens: 1024,
       })
 
       if (!output) {

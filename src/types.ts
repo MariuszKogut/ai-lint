@@ -1,9 +1,13 @@
 // --- Config Types ---
 
-export type Model = 'gemini-flash' | 'haiku' | 'sonnet' | 'opus'
+export type Provider = 'openrouter' | 'ollama'
+export type OpenRouterModel = 'gemini-flash' | 'haiku' | 'sonnet' | 'opus'
+export type Model = OpenRouterModel | (string & {})
 export type Severity = 'error' | 'warning'
 
 export interface LinterConfig {
+  provider: Provider
+  provider_url?: string
   model: Model
   concurrency: number
   git_base: string

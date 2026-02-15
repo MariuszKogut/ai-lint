@@ -24,6 +24,10 @@ vi.mock('@openrouter/ai-sdk-provider', () => ({
   createOpenRouter: vi.fn(() => vi.fn((modelId: string) => ({ modelId }))),
 }))
 
+vi.mock('@ai-sdk/openai-compatible', () => ({
+  createOpenAICompatible: vi.fn(() => vi.fn((modelName: string) => ({ modelId: modelName }))),
+}))
+
 describe('E2E Tests — Full Workflow', () => {
   let tempDir: string
 
@@ -95,7 +99,11 @@ ${fullConfig.rules
   async function runLinter(files: string[]) {
     const config = new ConfigLoader().load(join(tempDir, '.ai-lint.yml'))
     const cache = new CacheManager(join(tempDir, '.ai-lint'))
-    const client = new AIClient(config.model)
+    const client = new AIClient({
+      provider: config.provider,
+      providerUrl: config.provider_url,
+      defaultModel: config.model,
+    })
     const matcher = new RuleMatcher(config.rules)
     const reporter = new Reporter()
     const engine = new LinterEngine({ cache, client, matcher, reporter })
@@ -358,7 +366,11 @@ ${fullConfig.rules
       reportFile: reportPath,
       deps: {
         cache: new CacheManager(join(tempDir, '.ai-lint')),
-        client: new AIClient(config.model),
+        client: new AIClient({
+          provider: config.provider,
+          providerUrl: config.provider_url,
+          defaultModel: config.model,
+        }),
         matcher: new RuleMatcher(config.rules),
       },
       log: logSpy,

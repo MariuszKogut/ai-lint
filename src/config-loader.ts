@@ -1,9 +1,16 @@
 import fs from 'node:fs'
-import Ajv from 'ajv'
+import Ajv, { type ErrorObject } from 'ajv'
 import addFormats from 'ajv-formats'
 import YAML from 'yaml'
 import schema from './schema.json' with { type: 'json' }
-import type { LinterConfig } from './types.js'
+import type { LinterConfig, OpenRouterModel } from './types.js'
+
+const OPENROUTER_MODELS: Set<string> = new Set<OpenRouterModel>([
+  'gemini-flash',
+  'haiku',
+  'sonnet',
+  'opus',
+])
 
 export class ConfigLoader {
   private static ajvInstance: Ajv | null = null
@@ -41,15 +48,32 @@ export class ConfigLoader {
     }
 
     // Apply defaults
+    const raw = rawConfig as Record<string, unknown>
+    const provider = (raw.provider as string | undefined) ?? 'openrouter'
+
+    // Require model when provider is ollama (no sensible default)
+    if (provider === 'ollama' && !raw.model) {
+      throw new Error('Config validation failed:\n  - /model: is required when provider is ollama')
+    }
+
     const config: LinterConfig = {
-      model: rawConfig.model ?? 'gemini-flash',
-      concurrency: rawConfig.concurrency ?? 5,
-      git_base: rawConfig.git_base ?? 'main',
-      rules: rawConfig.rules,
+      provider: provider as LinterConfig['provider'],
+      provider_url:
+        (raw.provider_url as string | undefined) ??
+        (provider === 'ollama' ? 'http://localhost:11434/v1' : undefined),
+      model: (raw.model as LinterConfig['model']) ?? 'gemini-flash',
+      concurrency: (raw.concurrency as number) ?? (provider === 'ollama' ? 1 : 5),
+      git_base: (raw.git_base as string) ?? 'main',
+      rules: raw.rules as LinterConfig['rules'],
     }
 
     // Validate unique rule IDs (custom validation not in schema)
     this.validateUniqueRuleIds(config.rules)
+
+    // Validate model names for openrouter provider
+    if (provider === 'openrouter') {
+      this.validateOpenRouterModels(config)
+    }
 
     return config
   }
@@ -76,9 +100,28 @@ export class ConfigLoader {
   }
 
   /**
+   * Validate that model names are known OpenRouter shortnames
+   */
+  private validateOpenRouterModels(config: LinterConfig): void {
+    if (!OPENROUTER_MODELS.has(config.model)) {
+      throw new Error(
+        `Unknown model '${config.model}' for openrouter provider. Allowed values: ${[...OPENROUTER_MODELS].join(', ')}`,
+      )
+    }
+
+    for (const rule of config.rules) {
+      if (rule.model && !OPENROUTER_MODELS.has(rule.model)) {
+        throw new Error(
+          `Unknown model '${rule.model}' in rule '${rule.id}' for openrouter provider. Allowed values: ${[...OPENROUTER_MODELS].join(', ')}`,
+        )
+      }
+    }
+  }
+
+  /**
    * Format AJV validation errors into readable messages
    */
-  private formatValidationErrors(errors: Ajv.ErrorObject[]): string {
+  private formatValidationErrors(errors: ErrorObject[]): string {
     // Filter out verbose oneOf errors for cleaner messages
     const filteredErrors = errors.filter(
       (err) => err.keyword !== 'oneOf' && err.keyword !== 'additionalProperties',

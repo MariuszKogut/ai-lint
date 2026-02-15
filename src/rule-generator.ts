@@ -85,7 +85,7 @@ export class RuleGenerator {
       system: SYSTEM_PROMPT,
       prompt: description,
       temperature: 0.7,
-      maxTokens: 1024,
+      maxOutputTokens: 1024,
     })
 
     if (!output) {
@@ -114,7 +114,7 @@ Please fix the rule to pass schema validation.`
       system: FIX_SYSTEM_PROMPT,
       prompt: fixPrompt,
       temperature: 0,
-      maxTokens: 1024,
+      maxOutputTokens: 1024,
     })
 
     if (!fixedOutput) {

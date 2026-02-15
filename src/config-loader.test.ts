@@ -11,6 +11,7 @@ describe('ConfigLoader', () => {
     const config = loader.load(path.join(testDataDir, 'valid-config.yml'))
 
     expect(config).toMatchObject({
+      provider: 'openrouter',
       model: 'haiku',
       concurrency: 5,
       git_base: 'main',
@@ -34,7 +35,7 @@ describe('ConfigLoader', () => {
     })
   })
 
-  test('2. Defaults applied — model=haiku, concurrency=5, git_base=main when not specified', () => {
+  test('2. Defaults applied — provider=openrouter, model=gemini-flash, concurrency=5, git_base=main when not specified', () => {
     // Create temporary config with minimal fields
     const tmpPath = path.join(testDataDir, 'minimal-config.yml')
     fs.writeFileSync(
@@ -52,6 +53,7 @@ rules:
     try {
       const config = loader.load(tmpPath)
 
+      expect(config.provider).toBe('openrouter')
       expect(config.model).toBe('gemini-flash')
       expect(config.concurrency).toBe(5)
       expect(config.git_base).toBe('main')
@@ -227,6 +229,106 @@ rules: []
 
     try {
       expect(() => loader.load(tmpPath)).toThrow(/must have at least 1 items/i)
+    } finally {
+      fs.unlinkSync(tmpPath)
+    }
+  })
+
+  test('10. Ollama provider with arbitrary model name accepted', () => {
+    const config = loader.load(path.join(testDataDir, 'valid-ollama-config.yml'))
+
+    expect(config.provider).toBe('ollama')
+    expect(config.model).toBe('gpt-oss:20b')
+    expect(config.provider_url).toBe('http://localhost:11434/v1')
+    expect(config.concurrency).toBe(1)
+  })
+
+  test('11. Ollama without model — throws error', () => {
+    const tmpPath = path.join(testDataDir, 'ollama-no-model.yml')
+    fs.writeFileSync(
+      tmpPath,
+      `
+provider: ollama
+rules:
+  - id: test_rule
+    name: "Test Rule"
+    severity: error
+    glob: "**/*.ts"
+    prompt: "Test prompt"
+`,
+    )
+
+    try {
+      expect(() => loader.load(tmpPath)).toThrow(/model.*is required when provider is ollama/i)
+    } finally {
+      fs.unlinkSync(tmpPath)
+    }
+  })
+
+  test('12. Ollama provider_url defaults to localhost', () => {
+    const tmpPath = path.join(testDataDir, 'ollama-default-url.yml')
+    fs.writeFileSync(
+      tmpPath,
+      `
+provider: ollama
+model: llama3:8b
+rules:
+  - id: test_rule
+    name: "Test Rule"
+    severity: error
+    glob: "**/*.ts"
+    prompt: "Test prompt"
+`,
+    )
+
+    try {
+      const config = loader.load(tmpPath)
+      expect(config.provider_url).toBe('http://localhost:11434/v1')
+    } finally {
+      fs.unlinkSync(tmpPath)
+    }
+  })
+
+  test('13. OpenRouter rejects unknown model names', () => {
+    const tmpPath = path.join(testDataDir, 'openrouter-bad-model.yml')
+    fs.writeFileSync(
+      tmpPath,
+      `
+model: llama3:8b
+rules:
+  - id: test_rule
+    name: "Test Rule"
+    severity: error
+    glob: "**/*.ts"
+    prompt: "Test prompt"
+`,
+    )
+
+    try {
+      expect(() => loader.load(tmpPath)).toThrow(/Unknown model.*openrouter/i)
+    } finally {
+      fs.unlinkSync(tmpPath)
+    }
+  })
+
+  test('14. Per-rule model validated for openrouter', () => {
+    const tmpPath = path.join(testDataDir, 'openrouter-bad-rule-model.yml')
+    fs.writeFileSync(
+      tmpPath,
+      `
+model: haiku
+rules:
+  - id: test_rule
+    name: "Test Rule"
+    severity: error
+    glob: "**/*.ts"
+    prompt: "Test prompt"
+    model: unknown-model
+`,
+    )
+
+    try {
+      expect(() => loader.load(tmpPath)).toThrow(/Unknown model.*rule.*openrouter/i)
     } finally {
       fs.unlinkSync(tmpPath)
     }
