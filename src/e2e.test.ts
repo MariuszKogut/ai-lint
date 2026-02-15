@@ -1,11 +1,12 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AnthropicClient } from './anthropic-client.js'
+import { AIClient } from './ai-client.js'
 import { CacheManager } from './cache-manager.js'
 import { ConfigLoader } from './config-loader.js'
 import { LinterEngine } from './linter-engine.js'
+import { runReportOnlyLint } from './report-only-runner.js'
 import { Reporter } from './reporter.js'
 import { RuleMatcher } from './rule-matcher.js'
 import type { LinterConfig } from './types.js'
@@ -94,7 +95,7 @@ ${fullConfig.rules
   async function runLinter(files: string[]) {
     const config = new ConfigLoader().load(join(tempDir, '.ai-lint.yml'))
     const cache = new CacheManager(join(tempDir, '.ai-lint'))
-    const client = new AnthropicClient(config.model)
+    const client = new AIClient(config.model)
     const matcher = new RuleMatcher(config.rules)
     const reporter = new Reporter()
     const engine = new LinterEngine({ cache, client, matcher, reporter })
@@ -325,6 +326,61 @@ ${fullConfig.rules
     expect(mockGenerateText).toHaveBeenCalledTimes(1) // Only file1 re-linted
     expect(results.find((r) => r.file.includes('file1.ts'))?.cached).toBe(false)
     expect(results.find((r) => r.file.includes('file2.ts'))?.cached).toBe(true)
+  })
+
+  it('should run in report-only mode, suppress normal output, and write report', async () => {
+    writeConfig({
+      rules: [
+        {
+          id: 'no_console',
+          name: 'No console.log',
+          severity: 'error',
+          glob: '**/*.ts',
+          prompt: 'Check for console.log statements',
+        },
+      ],
+    })
+
+    writeFile('file1.ts', 'const x = 1;\n')
+    const config = new ConfigLoader().load(join(tempDir, '.ai-lint.yml'))
+
+    mockGenerateText.mockResolvedValue({
+      output: { pass: true, message: 'No console.log found', line: null },
+    })
+
+    const logSpy = vi.fn()
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const reportPath = join(tempDir, '.ai-lint', 'report-only-report.json')
+
+    const exitCode = await runReportOnlyLint({
+      filesToLint: [join(tempDir, 'file1.ts')],
+      config,
+      reportFile: reportPath,
+      deps: {
+        cache: new CacheManager(join(tempDir, '.ai-lint')),
+        client: new AIClient(config.model),
+        matcher: new RuleMatcher(config.rules),
+      },
+      log: logSpy,
+    })
+
+    const report = JSON.parse(readFileSync(reportPath, 'utf-8')) as {
+      mode: string
+      exit_code: number
+      summary: { total_files: number }
+      results: Array<{ pass: boolean }>
+    }
+
+    expect(exitCode).toBe(0)
+    expect(report.mode).toBe('report-only')
+    expect(report.exit_code).toBe(0)
+    expect(report.summary.total_files).toBe(1)
+    expect(report.results).toHaveLength(1)
+    expect(report.results[0].pass).toBe(true)
+    expect(logSpy).toHaveBeenCalledTimes(1)
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Report written:'))
+    expect(consoleLogSpy).toHaveBeenCalledTimes(0)
+    consoleLogSpy.mockRestore()
   })
 
   // Test 7: Cache invalidation — prompt changed

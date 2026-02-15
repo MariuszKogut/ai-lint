@@ -16,11 +16,30 @@ export class CacheManager {
    * Load cache from disk. If the file doesn't exist, start with empty store.
    */
   load(): void {
+    let content: string
+
     try {
-      const content = readFileSync(this.cacheFilePath, 'utf-8')
+      content = readFileSync(this.cacheFilePath, 'utf-8')
+    } catch (error) {
+      // Missing cache file is expected for first run
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+        this.cacheStore = { version: 1, entries: {} }
+        return
+      }
+
+      console.warn(
+        `Warning: Failed to read cache file "${this.cacheFilePath}". Starting with empty cache.`,
+      )
+      this.cacheStore = { version: 1, entries: {} }
+      return
+    }
+
+    try {
       this.cacheStore = JSON.parse(content) as CacheStore
     } catch {
-      // File doesn't exist or is invalid - start with empty store
+      console.warn(
+        `Warning: Cache file "${this.cacheFilePath}" is invalid JSON. Starting with empty cache.`,
+      )
       this.cacheStore = { version: 1, entries: {} }
     }
   }

@@ -25,7 +25,9 @@ export class Reporter {
         const severityLabel =
           result.severity === 'error' ? chalk.red('error') : chalk.yellow('warn ')
         const ruleId = chalk.dim(result.rule_id)
-        console.log(`  ⎿ ${severityLabel}  ${ruleId}`)
+        const lineInfo =
+          typeof result.line === 'number' ? ` ${chalk.dim(`line ${result.line}`)}` : ''
+        console.log(`  ⎿ ${severityLabel}  ${ruleId}${lineInfo}`)
         const wrapped = this.wordWrap(result.message, msgWidth)
         for (const line of wrapped) {
           console.log(`${msgIndent}${line}`)

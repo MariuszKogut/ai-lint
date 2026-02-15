@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import dotenv from 'dotenv'
 import { describe, expect, it } from 'vitest'
-import { AnthropicClient } from './anthropic-client.js'
+import { AIClient } from './ai-client.js'
 import { ConfigLoader } from './config-loader.js'
 import type { LintJob } from './types.js'
 
@@ -30,7 +30,7 @@ describe('System Test — Real OpenRouter API', () => {
     const rule = config.rules[0]
     const fileContent = readFileSync(filePath, 'utf-8')
 
-    const client = new AnthropicClient(config.model)
+    const client = new AIClient(config.model)
     const job: LintJob = {
       rule,
       filePath: 'system-test-file.ts',
@@ -44,6 +44,7 @@ describe('System Test — Real OpenRouter API', () => {
     console.log('Result:', JSON.stringify(result, null, 2))
 
     expect(result.rule_id).toBe('no_hardcoded_secrets')
+    expect(result.api_error).not.toBe(true)
     expect(result.pass).toBe(false)
     expect(result.message).toBeTruthy()
     expect(result.cached).toBe(false)

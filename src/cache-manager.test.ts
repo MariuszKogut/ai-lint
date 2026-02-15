@@ -1,7 +1,7 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CacheManager } from './cache-manager.js'
 import type { LintResult } from './types.js'
 
@@ -234,6 +234,21 @@ describe('CacheManager', () => {
 
       const status = manager.status()
       expect(status.entries).toBe(0)
+    })
+
+    it('warns and resets when cache JSON is invalid', () => {
+      mkdirSync(cacheDir, { recursive: true })
+      writeFileSync(join(cacheDir, 'cache.json'), '{invalid json', 'utf-8')
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      manager.load()
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('is invalid JSON. Starting with empty cache.'),
+      )
+      expect(manager.status().entries).toBe(0)
+
+      warnSpy.mockRestore()
     })
   })
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { AnthropicClient } from './anthropic-client.js'
+import type { AIClient } from './ai-client.js'
 import type { CacheManager } from './cache-manager.js'
 import { LinterEngine, type Reporter } from './linter-engine.js'
 import type { RuleMatcher } from './rule-matcher.js'
@@ -7,7 +7,7 @@ import type { LinterConfig, LintResult, LintRule } from './types.js'
 
 describe('LinterEngine', () => {
   let mockCache: CacheManager
-  let mockClient: AnthropicClient
+  let mockClient: AIClient
   let mockMatcher: RuleMatcher
   let mockReporter: Reporter
   let engine: LinterEngine
@@ -49,7 +49,7 @@ describe('LinterEngine', () => {
       status: vi.fn().mockReturnValue({ entries: 0, sizeBytes: 0 }),
     } as unknown as CacheManager
 
-    // Mock AnthropicClient
+    // Mock AIClient
     mockClient = {
       lint: vi.fn().mockResolvedValue({
         rule_id: 'test',
@@ -61,7 +61,7 @@ describe('LinterEngine', () => {
         duration_ms: 100,
         cached: false,
       }),
-    } as unknown as AnthropicClient
+    } as unknown as AIClient
 
     // Mock RuleMatcher
     mockMatcher = {

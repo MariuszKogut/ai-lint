@@ -81,6 +81,36 @@ describe('Reporter', () => {
     expect(output).toContain('File exceeds 300 lines')
   })
 
+  it('prints line number when available', () => {
+    const results: LintResult[] = [
+      {
+        rule_id: 'no_console_log',
+        rule_name: 'No console.log',
+        file: 'src/test.ts',
+        severity: 'error',
+        pass: false,
+        message: 'Contains console.log statement',
+        line: 42,
+        duration_ms: 100,
+        cached: false,
+      },
+    ]
+    const summary: LintSummary = {
+      total_files: 1,
+      total_rules_applied: 1,
+      passed: 0,
+      errors: 1,
+      warnings: 0,
+      cached: 0,
+      duration_ms: 100,
+    }
+
+    reporter.report(results, summary)
+
+    const output = consoleLogSpy.mock.calls.map((call) => call[0]).join('\n')
+    expect(output).toContain('line 42')
+  })
+
   it('groups results by file', () => {
     const results: LintResult[] = [
       {

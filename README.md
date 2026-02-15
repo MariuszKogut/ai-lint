@@ -117,6 +117,9 @@ ai-lint lint src/foo.ts src/bar.ts
 
 # Verbose mode — shows API vs cache per check
 ai-lint lint --all --verbose
+
+# Report-only mode for tool/agent integrations
+ai-lint lint --all --report-only --report-file .ai-lint/report.json
 ```
 
 **4.** Generate rules interactively:
@@ -148,9 +151,32 @@ ai-lint lint [files...]
   --base <branch>    Override git_base branch
   --config <path>    Config file (default: .ai-lint.yml)
   --verbose          Show API vs cache per check
+  --report-only      Suppress normal lint output and write JSON report
+  --report-file      JSON report path (default: .ai-lint/report.json)
 ```
 
 Exit codes: `0` = all passed, `1` = errors found, `2` = config/runtime error
+
+### `--report-only` behavior
+
+When `--report-only` is enabled:
+
+- Normal lint output is suppressed
+- A JSON report is written to `--report-file`
+- CLI prints a single final line: `Report written: <absolute-path>`
+
+Report payload:
+
+```json
+{
+  "mode": "report-only",
+  "generated_at": "2026-02-12T18:00:00.000Z",
+  "exit_code": 0,
+  "summary": {},
+  "results": [],
+  "error": null
+}
+```
 
 ### `ai-lint validate`
 
