@@ -50,6 +50,12 @@
     }
   ],
   "files": {
-    "includes": ["**", "!**/node_modules/**/*", "!**/dist/**/*", "!**/.claude-code-workflow/**/*"]
+    "includes": [
+      "**",
+      "!**/node_modules/**/*",
+      "!**/dist/**/*",
+      "!**/coverage/**/*",
+      "!**/.claude-code-workflow/**/*"
+    ]
   }
 }

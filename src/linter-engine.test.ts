@@ -33,6 +33,7 @@ describe('LinterEngine', () => {
   beforeEach(() => {
     // Setup config
     config = {
+      provider: 'openrouter',
       model: 'haiku',
       concurrency: 5,
       git_base: 'main',

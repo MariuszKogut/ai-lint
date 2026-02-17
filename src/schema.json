@@ -5,9 +5,18 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
+    "provider": {
+      "type": "string",
+      "enum": ["openrouter", "ollama"],
+      "description": "AI provider to use for linting"
+    },
+    "provider_url": {
+      "type": "string",
+      "description": "Base URL for the AI provider API"
+    },
     "model": {
       "type": "string",
-      "enum": ["gemini-flash", "haiku", "sonnet", "opus"],
+      "minLength": 1,
       "description": "Default AI model to use for linting"
     },
     "concurrency": {
@@ -66,7 +75,7 @@
         },
         "model": {
           "type": "string",
-          "enum": ["gemini-flash", "haiku", "sonnet", "opus"],
+          "minLength": 1,
           "description": "Override default model for this rule"
         }
       },

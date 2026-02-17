@@ -1,0 +1,11 @@
+provider: ollama
+model: gpt-oss:20b
+rules:
+  - id: no_hardcoded_secrets
+    name: No hardcoded secrets
+    severity: error
+    glob: "**/*.ts"
+    prompt: >
+      Check if the file contains any hardcoded secrets, passwords, API keys,
+      or tokens. Variables with names like 'password', 'secret', 'apiKey', 'token'
+      should not be assigned string literals directly in the code.

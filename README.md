@@ -1,6 +1,6 @@
 # 🤖 ai-lint
 
-AI-powered code linter with custom YAML rules. Write your rules in plain English, pick an AI model, and let it review your code. Works with Gemini, Claude, GPT and more via [OpenRouter](https://openrouter.ai/).
+AI-powered code linter with custom YAML rules. Write your rules in plain English, pick an AI model, and let it review your code. Works with Gemini, Claude, GPT and more via [OpenRouter](https://openrouter.ai/), or run locally with [Ollama](https://ollama.com/).
 
 ## 💡 Why?
 
@@ -30,10 +30,12 @@ npm link   # makes ai-lint available globally
 ### Requirements
 
 - Node.js 20+
-- An [OpenRouter](https://openrouter.ai/) API key
+- An [OpenRouter](https://openrouter.ai/) API key **or** a local [Ollama](https://ollama.com/) installation
 - A git repo (for `--changed` mode and `.gitignore` filtering)
 
 ## 🔑 Setup
+
+### Option A: OpenRouter (cloud models)
 
 ai-lint uses [OpenRouter](https://openrouter.ai/) as API gateway — one key, all models.
 
@@ -50,6 +52,36 @@ Or drop a `.env` file in your project root:
 ```
 OPEN_ROUTER_KEY=sk-or-v1-...
 ```
+
+### Option B: Ollama (local models)
+
+Run models entirely on your machine — no API key, no cloud, no cost (besides your own hardware).
+
+1. Install [Ollama](https://ollama.com/)
+2. Pull a model:
+
+```bash
+ollama pull llama3.2    # 3B params, fast
+ollama pull qwen2.5:14b # 14B params, better quality
+```
+
+3. Set your `.ai-lint.yml` to use Ollama:
+
+```yaml
+provider: ollama
+model: qwen2.5:14b
+# provider_url: http://localhost:11434/v1   # default, change if needed
+
+rules:
+  - id: no_secrets
+    name: "No hardcoded secrets"
+    severity: error
+    glob: "src/**/*.ts"
+    prompt: |
+      Check for hardcoded secrets, API keys, passwords, or tokens.
+```
+
+No `OPEN_ROUTER_KEY` needed — Ollama runs locally. Any model available via `ollama list` can be used.
 
 ## 🚀 Quick Start
 
@@ -212,10 +244,14 @@ Config file: `.ai-lint.yml` (validated against a JSON schema)
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `model` | `"gemini-flash"` \| `"haiku"` \| `"sonnet"` \| `"opus"` | `"gemini-flash"` | AI model for all rules |
+| `provider` | `"openrouter"` \| `"ollama"` | `"openrouter"` | AI provider |
+| `provider_url` | `string` | `"http://localhost:11434/v1"` | Provider URL (Ollama only) |
+| `model` | `string` | `"gemini-flash"` | AI model — OpenRouter shortname or any Ollama model name |
 | `concurrency` | `1-20` | `5` | Max parallel API calls |
 | `git_base` | `string` | `"main"` | Base branch for `--changed` |
 | `rules` | `array` | *(required)* | Your lint rules |
+
+> When `provider: ollama`, the `model` field is **required** and accepts any model name from `ollama list` (e.g. `llama3.2`, `qwen2.5:14b`, `codellama:13b`). When `provider: openrouter` (default), use one of the shortnames below.
 
 ### 🏷️ Models
 
@@ -236,7 +272,7 @@ Config file: `.ai-lint.yml` (validated against a JSON schema)
 | `glob` | `string` | yes | File matching pattern |
 | `exclude` | `string` | no | Files to skip |
 | `prompt` | `string` | yes | What to check (natural language) |
-| `model` | model string | no | Override model for this rule |
+| `model` | `string` | no | Override model for this rule |
 
 ## 🔧 How It Works
 
@@ -244,7 +280,7 @@ Config file: `.ai-lint.yml` (validated against a JSON schema)
 2. **Files** — resolves via `--all` (glob), `--changed` (git diff), or explicit paths; respects `.gitignore`
 3. **Matching** — finds rules whose `glob` matches and `exclude` doesn't
 4. **Cache** — skips API calls if (file hash + prompt hash) is already cached
-5. **AI** — sends each (file, rule) pair to the AI model via OpenRouter
+5. **AI** — sends each (file, rule) pair to the AI model via OpenRouter or Ollama
 6. **Report** — groups violations by file, prints to console
 
 ## 💾 Caching
